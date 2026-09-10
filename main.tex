@@ -136,14 +136,40 @@ for large correlation matrices.
 
 \subsection{Related software and prior approaches}
 
-% To be written only after checking the relevant literature carefully.
-% Discuss separately:
-% - software for constructing lattice interpolating operators;
-% - software/algorithms for automated Wick contraction;
-% - approaches for reducing redundant correlator contractions;
-% - what part of this workflow is not covered for the distillation setting.
-% Avoid claiming that another package cannot support distillation unless this
-% has been verified from its documentation or publication.
+Several tools address different parts of the operator-construction and
+correlator-evaluation workflow in lattice QCD. The Multi-Hadron Interpolators
+(MHI) package implements a general procedure for combining operators with
+definite momenta and projecting them into irreducible representations of the
+appropriate lattice little groups~\cite{PhysRevD.109.094516}. More recently,
+\texttt{OpTion} provides a systematic construction of multi-hadron lattice
+operators with general momentum, spin, and internal quantum numbers, with
+explicit constructions for systems containing up to four hadrons
+~\cite{Yan:2025op}. These approaches address the important problem of building
+interpolating operators with the required finite-volume symmetry properties.
+
+A separate class of work focuses on the subsequent evaluation of correlation
+functions. The Redstar analysis framework represents Wick-contraction terms as
+graphs and uses graph-contraction algorithms to reduce redundant work and to
+organize tensor contractions for execution on CPUs and GPUs
+~\cite{10.1145/3592979.3593409}. Its formulation includes tensors carrying
+both distillation and spin indices, and therefore provides an important example
+of optimized correlator evaluation in a distillation-based calculation.
+Related algorithmic work has also explored determinant representations of Wick
+contractions and methods for identifying smaller sets of determinant terms that
+are sufficient for evaluating nuclear correlation functions
+~\cite{PhysRevD.110.114505}.
+
+These developments address complementary parts of a broad computational
+problem. The emphasis of \textsc{SymCorr} in the present work is on treating
+the complete transformation from a symbolic quark-level operator description
+to a numerical distillation calculation as a sequence of explicit compilation
+stages. Operator representation, Wick contraction, translation to
+backend-independent physics objects, distillation lowering, execution planning,
+and numerical evaluation are kept as separate layers of the software. This
+staged organization is intended to make the algebraic transformations easier to
+inspect and validate while allowing numerical execution strategies to evolve
+without changing the original physics description of the interpolating
+operators.
 
 \subsection{Scope and contributions of SymCorr}
 
