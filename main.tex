@@ -46,42 +46,44 @@
 \section{Introduction}
 
 \subsection{Motivation}
-Lattice quantum chromodynamics (Lattice QCD) provides a first-principles,
-non-perturbative formulation of the strong interaction and has become the
-standard framework for studying hadron spectroscopy, hadronic matrix elements,
-and the interactions of multi-hadron systems. Modern spectroscopy calculations
-typically employ large variational operator bases to reliably isolate excited
-states, resonances, and near-threshold scattering channels. The quality of the
-extracted spectrum therefore depends critically on the construction of
-interpolating operators with good overlap onto the physical states of interest
-and on the efficient evaluation of the corresponding Euclidean correlation
-functions.
+Lattice QCD provides a non-perturbative framework for studying the properties
+and interactions of hadrons directly from quantum chromodynamics. In hadron
+spectroscopy, the quantities of interest are commonly extracted from Euclidean
+correlation functions constructed using interpolating operators with the
+quantum numbers of the states being studied.
 
-Among the available smearing techniques, the distillation framework
-introduced in Ref.~\cite{Peardon:2009gh} has emerged as one of the most
-successful approaches for spectroscopy calculations. By projecting the quark
-fields onto a low-dimensional Laplacian eigenvector basis, distillation
-provides a compact representation of quark propagation while preserving the
-flexibility to construct large and highly structured operator bases. It has
-enabled precision studies of excited hadrons, coupled-channel scattering,
-hybrid mesons, and multi-hadron systems that would otherwise be prohibitively
-expensive.
+Modern spectroscopy calculations often require a basis containing several
+interpolating operators rather than a single operator. Different operators may
+contain different spin structures, momenta, spatial constructions, or
+combinations of hadrons. Correlation matrices constructed from such operator
+bases provide the information required to resolve the finite-volume energy
+spectrum and to distinguish states with similar quantum numbers.
 
-Despite these advantages, the software required to construct and evaluate
-correlation functions in the distillation framework remains largely
-hand-crafted. New operator constructions often require significant manual
-implementation effort, including symbolic Wick contractions, flavor and spin
-bookkeeping, and the translation of analytical expressions into optimized
-tensor contractions. As operator bases become larger and more diverse, this
-manual workflow becomes increasingly difficult to maintain, verify, and extend.
+As the number and complexity of the interpolating operators increase,
+constructing the corresponding correlation functions becomes increasingly
+cumbersome. For every combination of source and sink operators, the allowed
+Wick contractions must be determined, fermionic signs must be treated
+consistently, and the flavor, spin, color, and spatial structures must be
+carried through to the numerical calculation. Although many of these steps are
+systematic, performing them manually for every new operator basis requires
+substantial implementation effort and can introduce bookkeeping errors.
 
-This work introduces \textsc{SymCorr}, a compiler framework that automates the
-construction and optimization of lattice QCD correlation functions within the
-distillation formalism. Rather than treating correlator construction as a
-collection of ad hoc tensor contractions, \textsc{SymCorr} represents
-interpolating operators symbolically, performs automatic Wick contractions,
-identifies reusable computational structures, and generates optimized execution
-graphs suitable for efficient numerical evaluation.
+The distillation framework~\cite{Peardon:2009gh} provides a particularly useful
+setting for spectroscopy calculations because it separates quark propagation
+from the operator-dependent structures used to construct hadrons. This makes
+it possible to construct a wide range of interpolating operators from a common
+set of quark-propagation data. Nevertheless, the transformation from the
+mathematical definition of an interpolating operator to the complete numerical
+expression for its correlation function remains a non-trivial task.
+
+\textsc{SymCorr} is developed to automate this transformation. Interpolating
+operators are first expressed symbolically, after which the package determines
+the corresponding Wick contractions and systematically transforms the
+resulting expressions toward their numerical representation in the
+distillation framework. The aim is to reduce the amount of correlator-specific
+algebra and implementation that must be performed manually, while keeping the
+physical definition of an operator separate from the details of its numerical
+evaluation.
 
 \subsection{Challenges in lattice QCD correlator construction}
 
@@ -217,7 +219,6 @@ desired quantum numbers. The elementary symbolic objects represented by
 \textsc{SymCorr} are described below.
 
 \subsection{Quark fields}
-
 The fundamental fermionic objects are quark and antiquark fields,
 
 \begin{equation}
@@ -657,7 +658,6 @@ Prefetch
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Baryon correlator}
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Multi-hadron correlator}
