@@ -87,33 +87,51 @@ evaluation.
 
 \subsection{Challenges in lattice QCD correlator construction}
 
-The numerical evaluation of hadronic correlation functions involves several
-distinct stages. Interpolating operators are first constructed with the desired
-quantum numbers, including flavor, spin, momentum, and lattice symmetry
-transformations. Correlation functions are then obtained by applying Wick's
-theorem, producing a sum over quark contractions that must subsequently be
-expressed in terms of quark propagators.
+For a simple interpolating operator, constructing a two-point correlation
+function can be relatively straightforward. A meson operator, for example,
+contains one quark and one antiquark field, and the corresponding Wick
+contractions involve only a small number of quark lines. The structure becomes
+more involved when the operators contain several quark fields or when many
+operators are combined into a correlation matrix.
 
-Within the distillation formalism these propagators are replaced by
-perambulators and mode-space operator kernels. Although this factorization
-greatly reduces the computational cost of propagator inversions, it introduces
-a new layer of algebraic complexity. The resulting expressions consist of large
-collections of tensor contractions whose structure depends on the flavor
-content, spin couplings, momentum projections, derivatives, and color
-contractions appearing in the interpolating operators.
+For a basis of interpolating operators \(\{\mathcal O_i\}\), one evaluates the
+matrix of correlation functions
 
-For realistic spectroscopy calculations involving dozens or hundreds of
-operators, manually deriving and implementing these contractions is
-time-consuming and prone to error. Small modifications to an operator basis
-often require extensive changes throughout the implementation, while redundant
-sub-expressions are difficult to identify by hand. These challenges are
-particularly severe for multi-hadron systems, where the number of Wick
-contractions grows rapidly with the number of quark fields.
+\begin{equation}
+C_{ij}(t)
+=
+\left\langle
+\mathcal O_i(t)\,\mathcal O_j^{\dagger}(0)
+\right\rangle .
+\end{equation}
 
-Consequently, there is a need for software capable of representing
-interpolating operators symbolically, automatically performing Wick
-contractions, exploiting the algebraic structure of distillation, and producing
-optimized computational graphs for numerical evaluation.
+Each source--sink pair can contain different flavor, spin, momentum, and
+spatial structures. These structures must be retained consistently while all
+allowed contractions between quark and antiquark fields are identified. When
+several fields of the same flavor are present, there can be multiple valid
+pairings, and the relative signs associated with fermionic permutations must
+also be handled correctly.
+
+The amount of bookkeeping therefore grows as one moves from simple meson
+operators to baryons and multi-hadron operators. At the same time, realistic
+spectroscopy calculations require many source--sink combinations, so the same
+basic contraction patterns and operator-dependent structures can appear
+repeatedly across different matrix elements.
+
+After the Wick contractions have been determined, the resulting propagator
+expressions must still be translated into the objects used for numerical
+evaluation. In the distillation framework this means expressing the correlator
+in terms of perambulators and operator-dependent structures in the Laplacian
+eigenvector space. Carrying out this translation separately for each operator
+combination makes the implementation difficult to extend and increases the
+amount of repeated algebra that must be checked by hand.
+
+These difficulties motivate a systematic representation of the operators and
+their contractions. In \textsc{SymCorr}, the operator definition, Wick
+contraction, and subsequent translation to the distillation representation are
+treated as distinct stages. This allows each stage to be constructed and
+verified independently before introducing the numerical optimizations required
+for large correlation matrices.
 
 \subsection{Existing software}
 There are several existing software packages that provide tools for constructing 
@@ -417,7 +435,6 @@ independently of any numerical backend, allowing subsequent compiler passes to
 operate directly on the resulting algebraic structure.
 
 \subsection{Fermionic permutations}
-
 The contraction of Grassmann-valued fermion fields introduces a sign determined
 by the parity of the permutation required to bring contracted fields adjacent
 to one another. Consequently, every contraction graph is associated with a
