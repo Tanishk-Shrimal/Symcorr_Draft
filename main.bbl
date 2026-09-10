@@ -1,0 +1,38 @@
+\begin{thebibliography}{1}
+
+\bibitem{Peardon:2009gh}
+Michael Peardon, John Bulava, Justin Foley, Colin Morningstar, Jozef Dudek,
+  Robert~G. Edwards, Balint Joo, Huey-Wen Lin, David~G. Richards, and
+  Keisuke~Jimmy Juge.
+\newblock {A Novel quark-field creation operator construction for hadronic
+  physics in lattice QCD}.
+\newblock {\em Phys. Rev. D}, 80:054506, 2009.
+
+\bibitem{PhysRevD.109.094516}
+William Detmold, William~I. Jay, Gurtej Kanwar, Phiala~E. Shanahan, and
+  Michael~L. Wagman.
+\newblock Multiparticle interpolating operators in quantum field theories with
+  cubic symmetry.
+\newblock {\em Phys. Rev. D}, 109:094516, May 2024.
+
+\bibitem{Yan:2025op}
+Haobo Yan, Chuan Liu, Liuming Liu, and Yu~Meng.
+\newblock {Construction of general $N$-body lattice operators with arbitrary
+  momenta}.
+\newblock {\em JHEP}, 10:210, 2025.
+
+\bibitem{10.1145/3592979.3593409}
+Jie Chen, Robert~G. Edwards, and Weizhen Mao.
+\newblock Graph contractions for calculating correlation functions in lattice
+  qcd.
+\newblock In {\em Proceedings of the Platform for Advanced Scientific Computing
+  Conference}, PASC '23, New York, NY, USA, 2023. Association for Computing
+  Machinery.
+
+\bibitem{PhysRevD.110.114505}
+Debsubhra Chakraborty, Piyush Srivastava, Arpith Kumar, and Nilmani Mathur.
+\newblock Nuclear correlation functions using first-principle calculations of
+  lattice quantum chromodynamics.
+\newblock {\em Phys. Rev. D}, 110:114505, Dec 2024.
+
+\end{thebibliography}
