@@ -228,15 +228,67 @@ than being inferred from the existence of individual optimization stages.
 \label{sec:background}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% This section should contain only the background needed to understand SymCorr.
-% It should not become a general review of lattice spectroscopy.
+% This section contains only the background needed to understand the
+% construction and evaluation problem addressed by SymCorr.
 
 \subsection{Correlation functions and operator bases}
 
-% Introduce two-point functions and correlation matrices at a slightly more
-% formal level than in the Introduction.
-% Explain why source and sink operator bases lead to many related matrix
-% elements that must be evaluated consistently.
+In Euclidean lattice QCD, hadronic information is obtained from correlation
+functions built from interpolating operators. For a sink operator
+\(\mathcal O_i\) and a source operator \(\mathcal O_j^\dagger\), the two-point
+correlation function is
+
+\begin{equation}
+C_{ij}(t,t_0)
+=
+\left\langle
+\mathcal O_i(t)\,\mathcal O_j^\dagger(t_0)
+\right\rangle ,
+\label{eq:two_point_matrix}
+\end{equation}
+
+where \(t_0\) and \(t\) denote the source and sink times, respectively. The
+operators are constructed to carry the quantum numbers of the finite-volume
+states of interest.
+
+A single interpolating operator generally couples to more than one state with
+the same quantum numbers. Schematically, and suppressing finite-temporal-extent
+effects, the correlation matrix has the spectral form
+
+\begin{equation}
+C_{ij}(t,t_0)
+=
+\sum_n
+Z_i^{(n)} Z_j^{(n)*}
+ e^{-E_n(t-t_0)},
+\qquad
+Z_i^{(n)}=\langle 0|\mathcal O_i|n\rangle .
+\label{eq:spectral_decomposition}
+\end{equation}
+
+Using several operators with different structures therefore provides different
+overlaps with the same set of finite-volume states. This is the reason that
+spectroscopy calculations commonly work with a correlation matrix rather than
+a single correlator. The subsequent extraction of the spectrum is an analysis
+problem; the role considered in this work is the construction and evaluation
+of the matrix elements \(C_{ij}\) themselves.
+
+If the sink basis contains \(N_{\mathrm{sink}}\) operators and the source basis
+contains \(N_{\mathrm{source}}\) operators, then each source--sink time pair
+requires up to
+\(N_{\mathrm{sink}}N_{\mathrm{source}}\) correlator matrix elements. The two
+bases may be the same, in which case the familiar square correlation matrix is
+obtained, or they may be specified independently. In either case, every matrix
+element must preserve the flavor, spin, momentum, spatial, and source--sink
+orientation carried by its two operators.
+
+This matrix structure is important computationally. Different matrix elements
+are not unrelated calculations: they can share quark-propagation data,
+operator-dependent building blocks, and portions of the resulting contraction
+expressions. Treating the complete operator basis as a structured calculation,
+rather than evaluating each \(C_{ij}\) as an isolated expression, therefore
+creates opportunities to identify repeated work while maintaining a single
+consistent definition of the underlying operators and their contractions.
 
 \subsection{Distillation formalism}
 
