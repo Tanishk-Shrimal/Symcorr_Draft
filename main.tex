@@ -14,10 +14,11 @@
 \usepackage{subcaption}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 \title{SymCorr: A Compiler Framework for Automated Construction and Efficient Evaluation of Lattice QCD Correlation Functions}
-
 \author{...}
-
 \date{}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -29,23 +30,23 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
 
-% Motivation
-
-% Challenges of modern lattice spectroscopy
-
-% Need for symbolic automation
-
-% Need for efficient execution
-
-% Main contributions
+% Write this near the end of the drafting process.
+% Final abstract should contain, in order:
+% 1. The problem addressed.
+% 2. What SymCorr is.
+% 3. The implemented scope of the package.
+% 4. How the implementation is validated.
+% 5. The principal performance result(s), once measured.
 
 \end{abstract}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \section{Introduction}
+\label{sec:introduction}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsection{Motivation}
+
 Lattice QCD provides a non-perturbative framework for studying the properties
 and interactions of hadrons directly from quantum chromodynamics. In hadron
 spectroscopy, the quantities of interest are commonly extracted from Euclidean
@@ -133,613 +134,334 @@ treated as distinct stages. This allows each stage to be constructed and
 verified independently before introducing the numerical optimizations required
 for large correlation matrices.
 
-\subsection{Existing software}
-There are several existing software packages that provide tools for constructing 
-the interpolating operators in the subduced representations of the lattice symmetry 
-groups such as Multi Hadron Interpolators (MHI) \cite{PhysRevD.109.094516} and OpTion\cite{Yan:2025op}. Following this the next step is to perform the Wick contractions and evaluate the resulting expressions. There are several software packages that automate this process and also various algorithms have been proposed to identify the redundancies and optimize the evaluation of the resulting expresssions such as those proposed in \cite{10.1145/3592979.3593409, PhysRevD.110.114505}. However, these packages are not designed to work with the distillation framework and do not provide the necessary abstractions to represent the distillation formalism.
-\subsection{Contributions of SymCorr}
-In this work we present \textsc{SymCorr}, a domain-spefific compiler framework that automates the construction and optimization of lattice QCD correlation functions within the distillation formalism. The main contributions of this work are as follows:
-The principal contributions of this work are
+\subsection{Related software and prior approaches}
 
-\begin{itemize}
+% To be written only after checking the relevant literature carefully.
+% Discuss separately:
+% - software for constructing lattice interpolating operators;
+% - software/algorithms for automated Wick contraction;
+% - approaches for reducing redundant correlator contractions;
+% - what part of this workflow is not covered for the distillation setting.
+% Avoid claiming that another package cannot support distillation unless this
+% has been verified from its documentation or publication.
 
-\item A symbolic intermediate representation for lattice QCD interpolating
-operators that naturally captures flavor, spin, derivatives, momentum
-projection, and color structure.
+\subsection{Scope and contributions of SymCorr}
 
-\item An automatic Wick contraction engine that transforms operator products
-into sums of quark-line contraction graphs without manual derivation.
-
-\item A compiler framework that lowers symbolic expressions into optimized
-distillation-space execution graphs by identifying reusable computational
-structures.
-
-\item A backend capable of generating efficient numerical evaluation routines
-that separate symbolic operator construction from architecture-dependent
-execution.
-
-\item A modular software design that enables rapid development of new operator
-bases while reducing implementation effort and the likelihood of algebraic
-errors.
-
-\end{itemize}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Overview of SymCorr}
-
-The construction of lattice QCD correlation functions naturally consists of a sequence of symbolic and numerical transformations. Traditionally, these stages are implemented manually, with the symbolic derivation of correlation functions tightly coupled to their numerical realization. As operator bases become larger and more sophisticated, this workflow becomes increasingly difficult to maintain, verify, and extend.
-
-\textsc{SymCorr} addresses this problem by treating correlator construction as a domain-specific compiler. Rather than directly translating interpolating operators into numerical routines, the compiler progressively lowers a high-level symbolic description into an optimized execution plan through a sequence of well-defined compilation stages. This separation of concerns allows symbolic manipulations, algebraic optimizations, and backend-specific execution strategies to be developed independently.
-
-The overall compilation pipeline is illustrated in Fig.~\ref{fig:pipeline}. The process begins with a symbolic representation of interpolating operators, where the fundamental building blocks of lattice QCD---quark fields, gauge links, Dirac matrices, derivatives, and index structures---are represented independently of any numerical backend. The symbolic expressions are subsequently processed by an automatic Wick contraction engine, producing the complete set of fermionic contractions required to evaluate the correlation function.
-
-The contracted expressions are then lowered into a logical execution plan that represents the computation as a collection of backend-independent operations. At this stage, the compiler identifies reusable computational structures and algebraic dependencies while remaining agnostic to the underlying numerical implementation. The logical plan is subsequently transformed into a physical execution plan, where abstract operations are mapped onto concrete numerical primitives appropriate for the chosen backend, such as distillation kernels, perambulators, and tensor contractions.
-
-Finally, the runtime system executes the optimized physical plan on numerical lattice data to produce the desired correlation functions. By separating symbolic operator construction from numerical evaluation, \textsc{SymCorr} provides a modular and extensible framework that simplifies the implementation of new interpolating operators while enabling backend-specific optimizations without modifying the underlying physics description.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Symbolic Representation}
-
-The frontend of \textsc{SymCorr} provides a symbolic language for constructing
-lattice QCD interpolating operators. Rather than directly generating numerical
-tensor contractions, operators are first represented as symbolic expressions
-that closely resemble their mathematical definitions. This symbolic
-representation preserves the flavor, spin, color, spatial, momentum, and
-derivative structure of the operator while remaining completely independent of
-the numerical backend. Consequently, algebraic manipulations such as Wick
-contractions, expression simplification, and compiler optimizations can be
-performed before any numerical implementation is introduced.
-
-Internally, every symbolic expression is represented as an abstract syntax tree
-(AST). The leaf nodes correspond to elementary lattice QCD objects such as
-quark fields, gamma matrices, gauge links, derivatives, momentum projections,
-and tensor objects, while internal nodes represent algebraic operations
-including multiplication, summation, tensor contraction, and operator
-composition. This tree-based representation preserves the complete symbolic
-structure of the interpolating operator and forms the intermediate
-representation on which subsequent compiler passes operate.
-
-In its most general form, an interpolating operator may be regarded as an
-algebraic composition of elementary symbolic objects,
-
-\begin{equation}
-\mathcal{O}
-=
-\mathcal{C}
-\left[
-\prod_{i=1}^{N}
-\Phi_i
-\right],
-\label{eq:generic_operator}
-\end{equation}
-
-where
-
-\begin{equation}
-\Phi_i
-\in
-\left\{
-q,\,
-\bar q,\,
-\Gamma,\,
-U,\,
-D,\,
-P,\,
-\epsilon,\,
-\delta,\,
-\ldots
-\right\},
-\end{equation}
-
-and $\mathcal C$ denotes the complete contraction of color, spin, flavor,
-spatial, and other auxiliary indices required to project the operator onto the
-desired quantum numbers. The elementary symbolic objects represented by
-\textsc{SymCorr} are described below.
-
-\subsection{Quark fields}
-The fundamental fermionic objects are quark and antiquark fields,
-
-\begin{equation}
-q_f^{a\alpha}(x),
-\qquad
-\bar q_f^{a\alpha}(x),
-\end{equation}
-
-where $f$ denotes the flavor index, $a$ the color index, $\alpha$ the Dirac
-spin index, and $x$ the spacetime coordinate. These symbolic fields constitute
-the elementary degrees of freedom from which all interpolating operators are
-constructed.
-
-Since the frontend manipulates symbolic objects rather than numerical fields,
-the representation is independent of the underlying fermion discretization,
-allowing the same symbolic description to be compiled for different numerical
-backends.
-
-\subsection{Indices}
-
-Every symbolic object carries a collection of indices describing its
-transformation properties. Depending on the object, these include color, spin,
-flavor, spacetime, momentum, derivative, and displacement indices. Throughout
-the compilation process these indices remain symbolic, allowing the compiler to
-perform consistency checks, identify valid tensor contractions, and preserve
-the algebraic structure of the operator until numerical code generation.
-
-\subsection{Dirac matrices}
-
-Dirac matrices are represented as symbolic operators acting on spinor indices.
-They may be freely combined with quark fields to construct arbitrary fermion
-bilinears and higher-order interpolating operators. Treating Dirac matrices
-symbolically enables the compiler to manipulate operator expressions without
-prematurely expanding the associated spin algebra.
-
-\subsection{Gauge transporters}
-
-Gauge transporters are represented by symbolic Wilson lines,
-
-\begin{equation}
-U(P)
-=
-\prod_{\ell\in P}
-U_\ell,
-\end{equation}
-
-where $P$ denotes an arbitrary lattice path. These objects ensure gauge
-covariance for non-local interpolating operators and displaced quark fields.
-Because the path itself is represented symbolically, arbitrary displacement
-patterns can be incorporated without modifying the compiler.
-
-\subsection{Covariant derivatives}
-
-Covariant derivatives are represented as symbolic operators acting on quark
-fields. They may be combined to construct arbitrary derivative structures and
-operators carrying non-zero orbital angular momentum. Their symbolic
-representation preserves the derivative structure throughout the compilation
-pipeline before being lowered to the corresponding backend-specific
-implementation.
-
-\subsection{Momentum projections}
-
-Momentum projection operators are represented by symbolic phase factors,
-
-\begin{equation}
-P_{\mathbf p}(x)
-=
-e^{i\mathbf p\cdot\mathbf x},
-\end{equation}
-
-which may act on arbitrary symbolic expressions. By retaining momentum
-projections symbolically, \textsc{SymCorr} preserves translational properties
-and momentum conservation until the numerical execution stage.
-
-\subsection{Tensor objects}
-
-Many interpolating operators require additional tensors to contract color,
-spin, flavor, or lattice symmetry indices. These include the Kronecker delta,
-the Levi--Civita tensor,
-
-\begin{equation}
-\delta_{ij},
-\qquad
-\epsilon_{abc},
-\end{equation}
-
-as well as arbitrary user-defined symbolic tensors. These objects are treated
-uniformly within the symbolic representation and participate in the same
-algebraic manipulation and contraction framework as the remaining symbolic
-objects.
-
-\subsection{Interpolating operators}
-
-Interpolating operators are obtained by composing the elementary symbolic
-objects introduced above through algebraic operations represented in the AST.
-The resulting expressions may describe local or non-local operators, mesons,
-baryons, tetraquarks, pentaquarks, hybrid operators, or arbitrary multi-hadron
-systems.
-
-For example, a generic meson interpolating operator may be written as
-
-\begin{equation}
-\mathcal O_M(x)
-=
-\bar q_f(x)\,
-\Gamma\,
-D^{(n)}
-U(P)\,
-P_{\mathbf p}(x)\,
-q_g(x),
-\end{equation}
-
-whereas a baryon interpolating operator takes the form
-
-\begin{equation}
-\mathcal O_B(x)
-=
-\epsilon_{abc}
-\left(
-q_1^a(x)
-\Gamma_1
-q_2^b(x)
-\right)
-\Gamma_2
-q_3^c(x).
-\end{equation}
-
-More complicated interpolators are constructed recursively by composing these
-elementary building blocks. Since the complete symbolic structure is preserved,
-the resulting expressions can subsequently undergo automatic Wick contraction,
-compiler optimization, and backend-specific lowering without requiring any
-manual algebraic manipulation.
+% State only functionality that is implemented and validated at submission.
+% Possible contribution categories to assess later:
+% - symbolic representation of interpolating operators;
+% - automatic Wick contraction;
+% - lowering to a distillation-oriented representation;
+% - reusable numerical structures and contraction planning;
+% - hardware-aware numerical execution;
+% - validation across supported correlator families.
+% Keep future features out of this subsection.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Automatic Wick Contraction}
-
-Following the symbolic construction of the interpolating operators,
-\textsc{SymCorr} automatically applies Wick's theorem to generate the
-corresponding correlation function. This stage transforms products of fermionic
-field operators into sums over quark propagator contractions while preserving
-the complete symbolic structure of the expression.
-
-Unlike traditional workflows, where Wick contractions are derived manually for
-each new operator basis, the symbolic representation allows the contraction
-process to be fully automated. The output of this stage is a symbolic
-expression containing all valid contraction terms together with the associated
-fermionic permutation signs. These expressions form the input to the
-optimization stages described in the following sections.
-
-\subsection{Wick's theorem}
-
-Consider a generic Euclidean correlation function
-
-\begin{equation}
-C(t)
-=
-\left<
-\mathcal O_{\mathrm{sink}}(t)
-\mathcal O_{\mathrm{source}}^\dagger(0)
-\right>.
-\end{equation}
-
-Applying Wick's theorem replaces every quark--antiquark pair by the
-corresponding propagator,
-
-\begin{equation}
-q(x)\bar q(y)
-\rightarrow
-S(x,y),
-\end{equation}
-
-and expresses the correlation function as a sum over all complete
-fermionic contractions. Since QCD conserves flavor, contractions are permitted
-only between quark and antiquark fields carrying identical flavor quantum
-numbers.
-
-\subsection{Contraction graph generation}
-
-The contraction engine first identifies every quark and antiquark field
-appearing in the symbolic expression. For each quark flavor, all complete
-matchings between quark and antiquark fields are generated subject to flavor
-conservation. Every valid matching corresponds to one contraction graph.
-
-If a correlation function contains \(n_f\) quark fields of flavor \(f\), the
-number of possible flavor-preserving contractions is
-
-\begin{equation}
-N_{\mathrm{contr}}
-=
-\prod_f n_f!.
-\end{equation}
-
-The symbolic representation enables these contraction graphs to be generated
-independently of any numerical backend, allowing subsequent compiler passes to
-operate directly on the resulting algebraic structure.
-
-\subsection{Fermionic permutations}
-The contraction of Grassmann-valued fermion fields introduces a sign determined
-by the parity of the permutation required to bring contracted fields adjacent
-to one another. Consequently, every contraction graph is associated with a
-fermionic sign
-
-\begin{equation}
-(-1)^{P},
-\end{equation}
-
-where \(P\) denotes the parity of the corresponding permutation.
-
-During contraction generation, \textsc{SymCorr} explicitly tracks these
-permutations so that the correct fermionic phase accompanies every contraction
-term throughout the compilation pipeline.
-
-\subsection{Determinant representation}
-
-The antisymmetric nature of Grassmann fields allows many contraction
-expressions to be written compactly as determinants of quark propagators.
-Rather than explicitly enumerating every permutation, groups of contractions
-associated with identical fermion species can be represented by determinant
-expressions, leading to a substantial reduction in symbolic complexity.
-
-Recent work~\cite{PhysRevD.110.114505} demonstrated that determinant
-representations together with polynomial identity testing can significantly
-reduce the number of independent determinants required for conventional lattice
-QCD correlators. Although this construction is highly effective for point
-propagators, the distillation framework introduces additional mode-space kernel
-structures that prevent its direct application.
-
-In \textsc{SymCorr}, the determinant formulation is retained as the underlying
-symbolic representation, while additional compiler optimizations are introduced
-to identify and eliminate redundant computations arising specifically within
-the distillation formalism. These optimizations are discussed in
-Section~\ref{sec:optimization}.
-
-\subsection{Expression simplification}
-
-The contraction stage generally produces expressions containing algebraically
-equivalent terms and redundant symbolic structures. Before lowering the
-expressions into the compiler intermediate representation, \textsc{SymCorr}
-applies a collection of symbolic simplification rules.
-
-These include the elimination of identical contraction terms, simplification
-of tensor contractions, canonical ordering of symbolic objects, and the
-application of algebraic identities involving Dirac matrices, color tensors,
-and momentum projections. Performing these simplifications symbolically
-reduces the size of the generated execution graph and improves the efficiency
-of subsequent optimization and numerical evaluation stages.
-
+\section{Physics and Computational Background}
+\label{sec:background}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Compilation to the Distillation Representation}
+% This section should contain only the background needed to understand SymCorr.
+% It should not become a general review of lattice spectroscopy.
 
-The symbolic expressions produced by the automatic Wick contraction stage are
-written in terms of quark propagators connecting contracted quark and
-antiquark fields. While these expressions are mathematically complete, they are
-not directly suitable for efficient numerical evaluation within the
-distillation framework. Instead, the quark propagators must be rewritten in
-terms of the elementary objects of distillation, namely the perambulators and
-mode-space operator kernels.
+\subsection{Correlation functions and operator bases}
 
-The purpose of this compilation stage is therefore to lower the symbolic Wick
-expressions into a backend-independent intermediate representation expressed
-entirely in terms of distillation primitives. During this transformation,
-\textsc{SymCorr} identifies reusable operator kernels, factors propagators into
-their distillation representation, and constructs an execution graph that
-explicitly describes the numerical operations required to evaluate the
-correlation function. Since the compilation is performed symbolically, the
-resulting representation remains independent of the numerical backend while
-exposing opportunities for subsequent optimization and task scheduling.
+% Introduce two-point functions and correlation matrices at a slightly more
+% formal level than in the Introduction.
+% Explain why source and sink operator bases lead to many related matrix
+% elements that must be evaluated consistently.
 
-The compilation pipeline implemented in this stage consists of the following
-steps:
-
-\begin{enumerate}
-    \item Rewrite every quark propagator using the distillation decomposition.
-    \item Identify maximal mode-space operator kernels.
-    \item Construct reusable kernel descriptors.
-    \item Generate backend-independent contraction tasks.
-    \item Assemble the execution graph for numerical evaluation.
-\end{enumerate}
-
-The following subsections describe each of these stages in detail.
 \subsection{Distillation formalism}
-Distillation introduces a low-rank approximation of the quark fields by projecting them onto a subspace spanned by the lowest eigenmodes of the gauge-covariant Laplacian operator. Where the laplacian operator is defined as
-\begin{equation}
-\Delta = \sum_{\mu} \left( 2 - U_\mu(x) - U_\mu^\dagger(x-\hat{\mu}) \right),
-\end{equation}
-and the eigenvectors \(v_k(x)\) satisfy
-\begin{equation}
-\Delta v_k(x) = \lambda_k v_k(x),
-\end{equation}
-where \(\lambda_k\) are the corresponding eigenvalues. The distillation operator is then
-\begin{equation}
-\Box = \sum_{k=1}^{N_v} v_k(x) v_k^\dagger(y),
-\end{equation}
-where \(N_v\) is the number of eigenvectors retained in the projection. The smeared quark fields are defined as
-\begin{equation}
-\tilde{q}(x) = \Box q(x), \quad \tilde{\bar{q}}(x) = \bar{q}(x) \Box.
-\end{equation}
 
-\subsection{Perambulators}
-The quark propagators in the distillation framework are replaced by perambulators, which are defined as
-\begin{equation}
-\tau_{kl}(t, t') = v_k^\dagger(t) S(t, t') v_l(t'),
-\end{equation}
-where \(S(t, t')\) is the quark propagator between timeslices \(t\) and \(t'\), and \(v_k(t)\) are the eigenvectors of the Laplacian operator at timeslice \(t\). The perambulators encode the propagation of the smeared quark fields between different timeslices and are essential for constructing correlation functions in the distillation formalism.They are typically precomputed and stored for reuse across multiple correlation function evaluations, significantly reducing the computational cost of the overall calculation.
-\subsection{Kernel identification}
-The distillation compilation stage identifies the mode-space operator kernels that arise from the contraction expressions. These kernels are defined as
-\begin{equation}
-K_{kl}(t) = v_k^\dagger(t) \Gamma D^{(n)} U(P) P_{\mathbf p}(t) v_l(t),
-\end{equation}
-where \(\Gamma\) is a Dirac matrix, \(D^{(n)}\) is a covariant derivative operator, \(U(P)\) is a gauge transporter along path \(P\), and \(P_{\mathbf p}(t)\) is a momentum projection operator.
-The kernels capture the action of the interpolating operators in the mode space defined by the Laplacian eigenvectors. By identifying and reusing these kernels across different contraction terms, the compiler can reduce the number of unique computations required for evaluating the correlation functions, leading to improved performance and reduced memory usage. 
-\subsection{Kernel recipes}
+% Introduce only the ingredients used directly by SymCorr:
+% - Laplacian eigenvector subspace;
+% - distillation projector;
+% - smeared quark fields;
+% - perambulators;
+% - operator-dependent structures/elementals.
+% Add equations gradually and only where they are needed later in the paper.
 
-\subsection{Contraction tasks}
+\subsection{From an interpolating operator to a numerical correlator}
+
+% Give the conceptual workflow:
+% operator definition
+%   -> source/sink product
+%   -> Wick contractions
+%   -> propagator expression
+%   -> distillation representation
+%   -> tensor/numerical contractions
+% This subsection should motivate the structure of the SymCorr pipeline.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Compiler Backend}
-
+\section{Overview of SymCorr}
+\label{sec:overview}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Logical Execution Plan}
+\subsection{Design goals}
 
-Explain
+% Explain the design principles without implementation jargon first:
+% - preserve the physics description of operators;
+% - automate systematic algebra;
+% - separate symbolic construction from numerical execution;
+% - expose repeated structures for reuse;
+% - allow execution decisions to depend on available hardware.
 
-LogicalTask
+\subsection{End-to-end workflow}
 
-LogicalExecutionPlan
+% Present one high-level pipeline figure.
+% The figure should eventually show approximately:
+% symbolic operator
+%   -> Wick contraction
+%   -> physics/distillation lowering
+%   -> execution planning
+%   -> numerical runtime
+%   -> correlator output.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Current scope}
 
-\subsection{Static Analyses}
-
-DependencyAnalysis
-
-LifetimeAnalysis
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Physical Lowering}
-
-Logical Plan
-
-↓
-
-Physical Execution Plan
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Physical Instruction Set}
-
-Allocate
-
-Load
-
-Evaluate
-
-Contract
-
-Copy
-
-Store
-
-Free
-
-Barrier
-
-Wait
-
-Event
-
-Prefetch
+% List only the operator/correlator families that are demonstrably supported
+% by the package when the manuscript is prepared for submission.
+% Distinguish fully validated support from experimental/in-development support.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Plan Verification}
-
+\section{Symbolic Representation of Interpolating Operators}
+\label{sec:symbolic}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Optimization Framework}
+\subsection{Elementary symbolic objects}
+
+% Quark and antiquark fields, spin structures, momentum information,
+% displacement/derivative information, and other required operator ingredients.
+
+\subsection{Indices and quantum numbers}
+
+% Explain how flavor, spin, color, space/time and related labels are represented
+% and checked. Keep this tied to physics rather than software class names.
+
+\subsection{Constructing composite operators}
+
+% Explain how elementary objects are combined into meson, baryon and other
+% supported interpolating operators.
+
+\subsection{Simple operator examples}
+
+% Include one meson and one baryon example first.
+% Add more complicated examples only after these are clear and validated.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Planning Pipeline}
-
+\section{Automatic Wick Contraction}
+\label{sec:wick}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Kernel Reuse}
+\subsection{Flavor-compatible contractions}
+
+% Explain the basic matching problem and flavor conservation.
+
+\subsection{Fermionic signs}
+
+% Explain how the sign from fermion permutations enters and how SymCorr keeps
+% track of it.
+
+\subsection{Canonicalization and symbolic simplification}
+
+% Describe only simplifications that are actually implemented.
+% Separate exact algebraic equivalence from performance optimizations.
+
+\subsection{Output of the contraction stage}
+
+% Explain what symbolic object/representation is passed to the next stage,
+% without exposing unnecessary implementation detail.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Memory Planning}
-
+\section{Lowering to the Distillation Representation}
+\label{sec:distillation_lowering}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Analytical Cost Model}
+\subsection{Distillation primitives}
+
+% Define the numerical building blocks that the symbolic expressions are
+% lowered to. Keep notation consistent with Sec.~\ref{sec:background}.
+
+\subsection{Operator-dependent structures}
+
+% Explain how the spatial/operator content is realized in Laplacian eigenvector
+% space. Use the package terminology only after the physical object is clear.
+
+\subsection{Propagation resources}
+
+% Explain how quark propagation/perambulators enter the lowered expression.
+
+\subsection{Construction of contraction tasks}
+
+% Explain the transition from a correct symbolic expression to a collection of
+% numerical contractions that can be planned and executed.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Runtime System}
-
+\section{Execution and Optimization Framework}
+\label{sec:execution}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Execution Context}
+% This is intentionally later in the manuscript. By this point the reader
+% should already understand the physics objects being evaluated.
+
+\subsection{Backend-independent execution representation}
+
+% Introduce logical/physical plans only if these remain central abstractions in
+% the final implementation.
+
+\subsection{Reuse of repeated structures}
+
+% Discuss coefficient aggregation, zero pruning, equivalent/reusable kernels,
+% contraction reuse, and related optimizations only where implemented.
+
+\subsection{Memory and time-slice planning}
+
+% Discuss tiling, staging, time batching and lifetime-aware memory decisions.
+% Explain first what is being batched/tiled physically.
+
+\subsection{Hardware-aware execution planning}
+
+% Explain how hardware information influences execution choices without
+% presenting device-specific tuning as part of the physics interface.
+
+\subsection{Numerical execution}
+
+% Explain how the finalized plan is evaluated on CPU/GPU and how results are
+% assembled into correlators/correlation matrices.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Resource Manager}
-
+\section{Validation and Correctness}
+\label{sec:validation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Storage Manager}
+% This should be a major section in a software paper. Distinguish verification
+% of algebra from numerical agreement and from performance testing.
+
+\subsection{Validation strategy}
+
+% Explain the hierarchy of unit, regression, numerical and end-to-end tests.
+
+\subsection{Symbolic and Wick-contraction tests}
+
+% Test flavor matching, signs, normalization, simplification and boundary cases.
+
+\subsection{Numerical correlator validation}
+
+% Present validated systems one by one.
+% Candidate subsections/cases: mesons, baryons, tetraquarks and other systems
+% only when a trusted reference calculation is available.
+
+\subsection{End-to-end and regression testing}
+
+% Explain equivalence tests, resume behavior, time batching equivalence,
+% CPU/GPU consistency where available, and the role of regression tests.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Kernel Evaluation}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Task Execution}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Output Assembly}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \section{Worked Examples}
-
+\label{sec:examples}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Use a small number of examples that illustrate increasing complexity.
+% Each example should show input operator -> generated structure -> numerical
+% result, rather than merely listing package syntax.
 
 \subsection{Meson correlator}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% First and simplest worked example.
 
 \subsection{Baryon correlator}
+
+% Demonstrate multiple quark fields and non-trivial Wick structure.
+
+\subsection{Multi-hadron or tetraquark example}
+
+% Include only after the corresponding pathway is fully validated.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Multi-hadron correlator}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \section{Performance Evaluation}
-
+\label{sec:performance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Compiler performance}
+% Do not write performance claims until controlled benchmarks are available.
 
-Compilation time
+\subsection{Benchmark setup}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Hardware, software versions, precision, operator basis, N_v, time slices,
+% data placement and other parameters required to reproduce each benchmark.
+
+\subsection{Compilation and planning overhead}
+
+% Measure symbolic/compilation cost separately from numerical execution.
 
 \subsection{Runtime performance}
 
-Execution time
+% Compare meaningful execution paths/reference implementations.
+
+\subsection{Memory use}
+
+% Quantify memory reductions or overhead only from measured data.
+
+\subsection{Scaling}
+
+% Candidate axes: operator-basis size, number of sink times, N_v, CPU/GPU,
+% and eventually multiple devices if supported and tested.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Kernel reuse}
-
+\section{Software Availability and Reproducibility}
+\label{sec:software}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Memory reduction}
+\subsection{Package and dependencies}
+
+% Repository, license, supported Python/toolchain versions and core dependencies
+% once these are stable for release.
+
+\subsection{User workflow}
+
+% Briefly describe how an operator/correlator calculation is specified and run.
+% Detailed user documentation should remain outside the paper.
+
+\subsection{Reproducibility of the results in this work}
+
+% Identify version/tag/commit, example inputs, benchmark scripts and test data
+% needed to reproduce the validation and performance results in the paper.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Scalability}
-
+\section{Limitations and Future Development}
+\label{sec:limitations}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\section{Applications}
-
-Discuss
-
-Meson spectroscopy
-
-Baryons
-
-Multi-hadron operators
-
-Coupled-channel calculations
-
-Future large operator bases
+% State current limitations explicitly.
+% Keep a clear distinction between:
+% - implemented and validated functionality;
+% - implemented but still experimental functionality;
+% - planned future work.
+% Possible future topics may include additional operator families,
+% generalized propagation inputs, multi-GPU/distributed execution and further
+% optimization passes, but only if they remain relevant at submission.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\section{Future Extensions}
-
-Profile-guided optimisation
-
-Multi-GPU
-
-Distributed execution
-
-Topology-aware scheduling
-
-Additional optimisation passes
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \section{Conclusions}
+\label{sec:conclusions}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Summarize the demonstrated contribution of SymCorr rather than the intended
+% final scope of the project.
+% State what was automated, what was validated, and what quantitative benefit
+% was established by the final benchmarks.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Optional appendices
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% \appendix
+% \section{Notation}
+% Use if the main text accumulates enough notation to justify a reference table.
+%
+% \section{Additional validation cases}
+% Use for detailed checks that are useful for reproducibility but interrupt the
+% main narrative.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
