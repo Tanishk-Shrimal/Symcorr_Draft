@@ -173,15 +173,55 @@ operators.
 
 \subsection{Scope and contributions of SymCorr}
 
-% State only functionality that is implemented and validated at submission.
-% Possible contribution categories to assess later:
-% - symbolic representation of interpolating operators;
-% - automatic Wick contraction;
-% - lowering to a distillation-oriented representation;
-% - reusable numerical structures and contraction planning;
-% - hardware-aware numerical execution;
-% - validation across supported correlator families.
-% Keep future features out of this subsection.
+\textsc{SymCorr} is intended to operate on the part of a distillation-based
+calculation that begins once the required lattice data are available. In
+particular, it contracts precomputed numerical objects such as Laplacian
+eigenvectors and perambulators; it does not generate the Laplacian eigenvectors
+or perform inversions of the Dirac operator. Its role is to connect the
+high-level specification of interpolating operators to the construction and
+numerical evaluation of the corresponding correlation functions.
+
+The main contributions of the present implementation are:
+
+\begin{itemize}
+
+\item A symbolic representation of lattice-QCD interpolating operators together
+with automatic Wick contraction, so that the quark-field content and allowed
+fermionic contractions can be handled before numerical storage or execution
+details are introduced.
+
+\item A staged compilation pipeline in which the contracted expressions are
+first translated into a backend-independent physics representation and are then
+lowered to the quantities required by the distillation formalism. This keeps
+the physics-level transformations separate from the later numerical execution
+choices.
+
+\item A global representation of the numerical contraction problem that makes
+repeated structures visible across the calculation. The current implementation
+uses this representation for contraction-order selection, reuse of common
+intermediate quantities, scheduling, and memory planning before numerical
+execution.
+
+\item A numerical runtime that binds the compiled calculation to externally
+supplied lattice data and evaluates the resulting contractions on CPU or GPU.
+The execution layer includes automatic hardware and memory checks, while the
+symbolic physics description remains independent of the machine on which the
+calculation is run.
+
+\item A validation strategy that separates algebraic and compiler regression
+tests from comparison with independent lattice-QCD data. At present, the
+external-data validation envelope includes rest- and moving-frame single-meson
+correlators, several bilocal two-hadron correlators, and a tested local
+four-quark contraction with a known external normalization difference. Other
+implemented pathways are not assumed to have the same level of numerical
+validation unless stated explicitly later in this work.
+
+\end{itemize}
+
+This distinction between implemented functionality and externally validated
+physics calculations is maintained throughout the paper. Performance claims
+are likewise deferred to controlled benchmarks presented separately, rather
+than being inferred from the existence of individual optimization stages.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Physics and Computational Background}
