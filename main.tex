@@ -640,8 +640,72 @@ functionality is not conflated with independently validated production use.
 
 \subsection{Elementary symbolic objects}
 
-% Quark and antiquark fields, spin structures, momentum information,
-% displacement/derivative information, and other required operator ingredients.
+The symbolic frontend represents an interpolating operator as an ordered
+algebraic expression assembled from objects that correspond directly to the
+field-theory ingredients of the operator. At this level the representation is
+independent of distillation tensors, external data layouts, contraction paths,
+and execution backends. The purpose of the frontend is to retain enough
+physical structure that subsequent compiler stages can determine these details
+systematically.
+
+The elementary fermionic objects are indexed quark and antiquark fields. A
+field of flavor \(f\) is represented schematically as
+
+\begin{equation}
+q_f(x)_{a\alpha},
+\qquad
+\bar q_f(x)_{a\alpha},
+\label{eq:symbolic_quark_field}
+\end{equation}
+
+where \(x\), \(a\), and \(\alpha\) denote position, color, and spin indices,
+respectively. The flavor and the distinction between a quark and an antiquark
+are properties of the field itself rather than annotations added during Wick
+contraction. This allows flavor compatibility and fermion ordering to be
+established directly from the symbolic expression.
+
+Spin structure is represented by indexed matrices
+\(\Gamma_{\alpha\beta}\). The frontend provides the usual gamma matrices and
+also permits named spin matrices used by the supported operator constructions,
+including charge-conjugation structures. At the symbolic level the important
+information is the matrix identity together with its two spin indices; the
+concrete numerical representation of the spin matrices is a later convention
+and does not alter the operator expression.
+
+Color contractions are explicit symbolic tensors. The current frontend contains
+both the Kronecker tensor \(\delta_{ab}\) and the antisymmetric tensor
+\(\epsilon_{abc}\), which provide the basic color structures required by the
+implemented meson- and baryon-like constructions. Gauge transport can also be
+represented explicitly through a gauge-link object
+\(U(x,y)_{ab}\) carrying its endpoints and open color indices. Keeping these
+objects visible in the expression prevents color connectivity from being
+inferred later from the ordering or shape of numerical arrays.
+
+Spatial transformations acting on individual fields are represented separately
+from the fields themselves. The current frontend distinguishes a pure
+coordinate shift from gauge-covariant parallel transport, provides a symbolic
+covariant derivative along a directed lattice axis, and supports field-level
+spatial projections such as the LapH and point representations. These
+transformations are attached to a particular field expression rather than being
+silently absorbed into the field. Consequently, an object such as
+\(D_\mu q_f\) retains the fact that a derivative acts on that specific field as
+the expression proceeds through the compiler.
+
+Products of the elementary objects form larger symbolic expressions, with the
+factor ordering retained explicitly. This is essential for fermionic
+expressions because the ordering of quark fields enters the sign obtained after
+Wick contraction. A complete interpolating operator then wraps such an
+expression together with its momentum assignment or assignments and optional
+metadata. For operators with several spatial locality groups, momentum can be
+associated with the corresponding position labels rather than being forced into
+one global momentum value.
+
+A quark propagator is deliberately not part of the user-authored symbolic
+vocabulary. Propagator objects arise only after the source and sink expressions
+have been combined and Wick contraction has paired compatible quark and
+antiquark fields. This boundary ensures that the user specifies the
+interpolating operator itself, while propagation topology is derived from the
+field content rather than supplied manually.
 
 \subsection{Indices and quantum numbers}
 
