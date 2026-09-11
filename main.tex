@@ -1039,8 +1039,88 @@ this flavor-compatibility decision.
 
 \subsection{Fermionic signs}
 
-% Explain how the sign from fermion permutations enters and how SymCorr keeps
-% track of it.
+The relative sign of each Wick term is fixed by the ordering of the fermionic
+fields in the original symbolic correlator. SymCorr therefore retains the
+encounter order of all quark-field leaves across the ordered operator
+insertions. Spin matrices, color tensors, and spatial transformations remain
+part of the operator expression, but they do not themselves contribute to the
+Grassmann permutation parity.
+
+Let the ordered fermionic fields in a basis correlator be
+\(F=(f_1,\ldots,f_{2N})\), and consider one complete flavor-compatible pairing
+
+\begin{equation}
+\mathcal P
+=
+\bigl\{
+(q_{i_1},\bar q_{j_1}),\ldots,
+(q_{i_N},\bar q_{j_N})
+\bigr\}.
+\end{equation}
+
+For the purpose of determining the sign, SymCorr forms the sequence in which
+each quark is placed immediately before its paired antiquark,
+
+\begin{equation}
+F_{\mathcal P}
+=
+(q_{i_1},\bar q_{j_1},\ldots,
+ q_{i_N},\bar q_{j_N}),
+\end{equation}
+
+and determines the parity of the permutation that maps the original field
+ordering \(F\) to this paired ordering. If \(I(\mathcal P)\) is the number of
+inversions in that permutation, the Wick sign stored by the frontend is
+
+\begin{equation}
+s_{\mathcal P}=(-1)^{I(\mathcal P)}.
+\label{eq:wick_fermionic_sign}
+\end{equation}
+
+This is equivalent to counting the parity of the adjacent exchanges of
+fermionic fields required to bring every contracted pair together. The order
+in which complete pairs are listed does not affect the result: exchanging two
+whole pairs moves two fermionic fields past two others and therefore changes
+the permutation by an even number of transpositions.
+
+A four-field example makes the rule explicit. Suppose the original fermionic
+order is
+
+\begin{equation}
+q_1\,q_2\,\bar q_1\,\bar q_2 .
+\end{equation}
+
+For the pairing
+\((q_1,\bar q_1)(q_2,\bar q_2)\), the paired sequence corresponds to the
+position permutation \((1,3,2,4)\), which contains one inversion and hence has
+sign \(-1\). For the exchanged pairing
+\((q_1,\bar q_2)(q_2,\bar q_1)\), the position permutation is
+\((1,4,2,3)\), which contains two inversions and hence has sign \(+1\).
+Thus the relative direct/exchange sign is obtained from the same general
+permutation rule used for larger multi-quark systems; it is not inserted as a
+special topology-dependent convention.
+
+The sign and the algebraic coefficient are kept as separate pieces of the Wick
+term. For a basis correlator the contraction engine initially associates unit
+coefficient with each generated pairing and stores its Grassmann parity
+separately. If the correlator originated from a linear combination of
+operators, the corresponding complex weight multiplies the algebraic
+coefficient without altering the sign calculation. At the subsequent
+physics-representation boundary, these factors are combined into the
+coefficient multiplying the logical correlator,
+
+\begin{equation}
+c_{\mathcal P}^{\mathrm{phys}}
+=
+s_{\mathcal P}\,c_{\mathcal P}.
+\label{eq:wick_sign_coefficient}
+\end{equation}
+
+Keeping the two quantities distinct during the Wick stage makes the origin of a
+minus sign inspectable before later canonicalization, contraction planning, or
+numerical execution. In particular, the numerical backend does not infer or
+repair fermionic signs from propagator orientation or tensor layout; the sign
+is already fixed by the symbolic field ordering.
 
 \subsection{Canonicalization and symbolic simplification}
 
