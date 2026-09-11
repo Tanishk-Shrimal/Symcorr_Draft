@@ -371,14 +371,72 @@ objects and contractions.
 
 \subsection{From an interpolating operator to a numerical correlator}
 
-% Give the conceptual workflow:
-% operator definition
-%   -> source/sink product
-%   -> Wick contractions
-%   -> propagator expression
-%   -> distillation representation
-%   -> tensor/numerical contractions
-% This subsection should motivate the structure of the SymCorr pipeline.
+The starting point of a correlator calculation is the mathematical definition
+of the source and sink interpolating operators. Each operator is an algebraic
+combination of quark and antiquark fields together with the structures required
+to specify its flavor, spin, momentum, color, and spatial content. Forming the
+product appearing in Eq.~\eqref{eq:two_point_matrix} therefore produces an
+ordered product of fermion fields and operator-dependent factors.
+
+The first transformation is the application of Wick's theorem. Quark and
+antiquark fields of compatible flavor are paired, and each valid complete
+pairing contributes a term with the fermionic sign determined by the required
+permutation of fields. A contracted quark--antiquark pair is replaced by the
+corresponding quark propagator,
+
+\begin{equation}
+q_f(x)\,\bar q_f(y)
+\longrightarrow
+M_f^{-1}(x,y).
+\label{eq:wick_to_propagator}
+\end{equation}
+
+After all valid pairings have been generated, the correlation function is an
+exact sum of terms containing quark propagators together with the spin, color,
+momentum, and spatial structures inherited from the source and sink operators.
+At this stage the expression is already determined by the physics definition
+of the correlator, but it has not yet been organized for numerical evaluation.
+
+Within the distillation framework, every propagator in this expression is then
+projected into the retained Laplacian subspace and represented by a
+perambulator, while the operator-dependent factors are projected into the
+corresponding distillation-space objects. The result can be written
+schematically as
+
+\begin{equation}
+C_{ij}(t,t_0)
+=
+\sum_{\alpha}
+ c_{\alpha}\,
+\operatorname{Contr}
+\left[
+\{\Phi\}_{\alpha},
+\{\tau\}_{\alpha}
+\right],
+\label{eq:distillation_contraction_schematic}
+\end{equation}
+
+where \(\alpha\) labels the Wick-contraction terms, \(c_{\alpha}\) contains the
+associated numerical coefficient and fermionic sign, and
+\(\operatorname{Contr}\) denotes the required contractions over spin,
+Laplacian-mode, and any remaining internal indices. The detailed set of tensors
+and contractions depends on the interpolating operators, but the overall
+transformation is common to all correlators.
+
+A numerical calculation must finally realize the tensors required for the
+chosen gauge configuration and source--sink times and evaluate the contractions
+in Eq.~\eqref{eq:distillation_contraction_schematic}. At this point there can be
+many mathematically equivalent ways to order the tensor operations, and several
+correlator terms or matrix elements can require the same intermediate objects.
+These choices affect computational cost and memory use, but they do not change
+the underlying correlation function.
+
+This separation between the physics transformation and its numerical execution
+is central to \textsc{SymCorr}. The operator definition determines the Wick
+contractions and the distillation-space expression, whereas the subsequent
+choice of contraction ordering, reuse, memory placement, and execution device
+can be treated independently. The remainder of this paper describes how these
+stages are represented and connected in the software.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Overview of SymCorr}
