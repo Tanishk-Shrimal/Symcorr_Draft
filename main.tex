@@ -885,8 +885,86 @@ the operator, not in separate downstream execution interfaces.
 
 \subsection{Simple operator examples}
 
-% Include one meson and one baryon example first.
-% Add more complicated examples only after these are clear and validated.
+The following two examples illustrate how the mathematical expressions above
+are represented in the current frontend. They are intended only to demonstrate
+operator construction; the external-data validation status of particular
+channels is discussed separately in Sec.~\ref{sec:validation}.
+
+As a first example, consider the zero-momentum pseudoscalar operator
+
+\begin{equation}
+\mathcal O_{\mathrm{PS}}(x)
+=
+\bar d(x)\,\gamma_5\,u(x).
+\label{eq:simple_pseudoscalar_example}
+\end{equation}
+
+Using explicit color and spin indices, the corresponding SymCorr definition is
+
+\begin{verbatim}
+pion = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * u("x", "a", "beta"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+
+Here the repeated color label \texttt{a} forms the color singlet, while the
+repeated spin labels connect the quark fields through \(\gamma_5\). The
+position label \texttt{x} defines one locality group and therefore allows the
+single momentum assignment to be attached unambiguously. A corresponding
+source operator can be produced from the same definition,
+
+\begin{verbatim}
+source = pion.dagger()
+corr = Correlator(pion, source)
+\end{verbatim}
+
+without inserting a quark propagator or writing the Wick-contracted expression
+by hand. Those objects are generated only in the subsequent compilation stages.
+
+For a three-quark example, the repository provides a convenience constructor
+for a local baryon-like operator of the form
+
+\begin{equation}
+\mathcal O_B(x)_\delta
+=
+\epsilon_{abc}
+(C\gamma_5)_{\alpha\beta}
+\ell(x)_{a\alpha}
+\ell(x)_{b\beta}
+s(x)_{c\delta},
+\label{eq:simple_baryon_example}
+\end{equation}
+
+where \(\ell\) denotes the generic light-flavor field available in the
+frontend. The representative compiler fixture constructs this operator as
+
+\begin{verbatim}
+baryon = build_baryon_operator(
+    ["l", "l", "s"],
+    "Cg5",
+    momentum=(0, 0, 0),
+)
+
+corr = CorrMatrix([baryon])[0, 0]
+\end{verbatim}
+
+The helper inserts the antisymmetric color tensor and the selected diquark spin
+matrix but returns the same ordinary symbolic \texttt{Operator} used by the
+rest of the frontend. In the one-element correlation matrix shown above, no
+explicit source basis is supplied, so SymCorr constructs the source by
+Hermitian conjugating the sink operator before the correlator is formed.
+
+The contrast between these two examples is useful for the remainder of the
+paper. Increasing the number of quark fields changes the possible Wick
+pairings and the eventual contraction topology, but it does not require a new
+frontend representation. Both operators enter the compiler as ordered symbolic
+field expressions with explicit flavor, index connectivity, spin/color
+structure, and momentum information. The automatic Wick-contraction stage is
+therefore the first point at which their substantially different propagation
+structures emerge.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Automatic Wick Contraction}
