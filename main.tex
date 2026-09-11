@@ -709,8 +709,74 @@ field content rather than supplied manually.
 
 \subsection{Indices and quantum numbers}
 
-% Explain how flavor, spin, color, space/time and related labels are represented
-% and checked. Keep this tied to physics rather than software class names.
+SymCorr assigns every symbolic index to one of three spaces: spin, color, or
+position. An index is therefore not identified by its text label alone. When a
+label is first introduced, its index space is fixed; attempting to reuse the
+same label as a different type is rejected. Reusing the label within the same
+space refers to the same symbolic index and hence defines the intended tensor
+connectivity of the operator.
+
+Spin and color indices follow the usual Einstein-style interpretation within a
+symbolic expression. An index appearing twice denotes a contracted index, while
+a single occurrence remains open. Open spin indices are permitted because, for
+example, baryon operators can carry an uncontracted Dirac index. An uncontracted
+color index is allowed by the representation but is reported as a warning
+because the resulting operator may not be gauge invariant. Spin or color
+indices appearing more than twice are rejected rather than assigned an
+ambiguous contraction meaning.
+
+Position indices play a different role. They identify the spatial or spacetime
+locality associated with fields and gauge structures and are therefore not
+subject to the same multiplicity rule. Two fields carrying the same position
+label belong to the same locality group, whereas distinct labels can be used to
+represent bilocal or more general composite operators. In this sense the
+position labels participate in the physical specification of the operator even
+though their literal names are dummy labels.
+
+The frontend does not combine all quantum numbers into a single opaque tag.
+Flavor is stored directly on each quark field, spin and color information are
+encoded by the indexed fields and tensors, and momentum is attached to the
+operator through its position-locality groups. If an operator contains exactly
+one such group, a single three-component lattice momentum is unambiguous. If it
+contains several independent locality groups, the momentum assignment is given
+as a map from the corresponding position labels to three-component momenta,
+
+\begin{equation}
+ x_r \longmapsto \mathbf p_r,
+ \qquad
+ \mathbf P = \sum_r \mathbf p_r ,
+\label{eq:operator_momentum_groups}
+\end{equation}
+
+where \(\mathbf P\) is the total momentum carried by the composite operator.
+This representation keeps the momentum associated with each constituent
+locality visible rather than replacing it immediately by the total momentum.
+Under Hermitian conjugation, every stored momentum assignment changes sign,
+consistent with the reversed source--sink orientation.
+
+The literal names chosen for dummy spin, color, and position indices are not
+part of the mathematical identity of an operator. SymCorr compares operator
+structure after a deterministic relabeling of these indices while preserving
+the ordered expression and the associated momentum assignments. Thus two
+operators that differ only by dummy-index names can be recognized as the same
+symbolic structure, whereas a change of flavor, tensor connectivity, factor
+ordering, spatial transformation, or momentum remains physically significant.
+
+A second use of relabeling occurs when several operators are inserted into one
+correlator. Each insertion is placed in a distinct index namespace before Wick
+contraction. The corresponding position labels in the momentum map are renamed
+at the same time. This prevents a source index and a sink index from becoming
+accidentally identified merely because the two independently constructed
+operators happened to use the same dummy label. Intentional contractions
+inside each operator remain unchanged.
+
+For a two-point correlation matrix, the sink and source bases are retained as
+separate ordered objects. When an explicit source basis is not supplied, the
+source operators are constructed as the Hermitian conjugates of the sink
+operators; otherwise the two bases may be specified independently. This keeps
+source--sink orientation, flavor content, momentum, and open-index structure
+explicit before the Wick-contraction stage determines the allowed propagation
+lines.
 
 \subsection{Constructing composite operators}
 
