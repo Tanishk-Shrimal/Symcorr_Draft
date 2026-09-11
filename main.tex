@@ -973,7 +973,69 @@ structures emerge.
 
 \subsection{Flavor-compatible contractions}
 
-% Explain the basic matching problem and flavor conservation.
+Wick contraction begins only after any operator linear combinations have been
+expanded into definite basis correlators. For one such correlator, SymCorr
+collects the quark and antiquark fields from all operator insertions while
+retaining their original left-to-right ordering. The first combinatorial task
+is then to determine every complete pairing allowed by the explicit quark
+flavors carried by those fields.
+
+For each flavor \(f\), let \(Q_f\) denote the set of quark fields and
+\(\bar Q_f\) the set of antiquark fields appearing in the correlator. A
+complete Wick contraction requires
+
+\begin{equation}
+|Q_f| = |\bar Q_f|
+\qquad
+\text{for every flavor } f.
+\label{eq:wick_flavor_balance}
+\end{equation}
+
+If this condition fails for any flavor, the current Wick engine produces no
+complete contraction term for that basis correlator. Cross-flavor pairings are
+never introduced to compensate for the mismatch.
+
+When the flavor counts are balanced, every bijection between the quark and
+antiquark fields of the same flavor is generated. If a flavor occurs
+\(n_f\) times as a quark and \(n_f\) times as an antiquark, that flavor channel
+therefore contributes \(n_f!\) possible pairings. Since the choices for
+different flavors are independent, the complete set of flavor-compatible
+pairings is the Cartesian product of the channel-wise choices, with total
+number
+
+\begin{equation}
+N_{\mathrm{pair}}
+=
+\prod_f n_f! .
+\label{eq:number_wick_pairings}
+\end{equation}
+
+This enumeration is important once identical flavors occur several times in a
+multi-quark or multi-hadron operator: direct and exchange pairings arise from
+the same rule rather than being encoded as separate hand-written topologies.
+
+Flavor matching is based on the symbolic QCD flavor, not on the identity of a
+numerical propagator resource that may eventually be used at run time. In
+particular, \(u\) and \(d\) remain distinct Wick flavors even if a numerical
+setup uses the same light-quark parameters or the same underlying data source
+for both. Isospin combinations or other flavor superpositions must therefore
+be specified explicitly through the operator linear-combination layer; the
+Wick engine does not infer them from numerical degeneracies.
+
+The pairing search is also not restricted to fields belonging to different
+operator insertions. A quark and antiquark of the same flavor may be paired even
+when both occur on the same side of a two-point function or within the same
+composite insertion. Retaining these possibilities is necessary for closed
+quark loops and disconnected or mixed contraction topologies. Filtering the
+pairings to sink--source lines alone would silently remove such terms before
+their topology could be identified.
+
+At this stage only the admissible field pairings have been determined. Each
+complete pairing is retained explicitly and is passed to the subsequent Wick
+steps, which determine its fermionic sign and replace each matched
+quark--antiquark pair by the corresponding symbolic propagation line. No
+numerical lattice data, contraction ordering, or hardware information enters
+this flavor-compatibility decision.
 
 \subsection{Fermionic signs}
 
