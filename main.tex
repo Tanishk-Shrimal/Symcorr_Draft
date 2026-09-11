@@ -292,13 +292,82 @@ consistent definition of the underlying operators and their contractions.
 
 \subsection{Distillation formalism}
 
-% Introduce only the ingredients used directly by SymCorr:
-% - Laplacian eigenvector subspace;
-% - distillation projector;
-% - smeared quark fields;
-% - perambulators;
-% - operator-dependent structures/elementals.
-% Add equations gradually and only where they are needed later in the paper.
+The distillation method~\cite{Peardon:2009gh} introduces a gauge-covariant
+spatial smearing operator constructed from a low-dimensional subspace of the
+three-dimensional gauge-covariant Laplacian. On each time slice, let
+\(v^{(k)}(t)\) denote the retained Laplacian eigenvectors and collect them as the
+columns of the matrix
+
+\begin{equation}
+V(t)
+=
+\left(
+ v^{(1)}(t),\ldots,v^{(N_v)}(t)
+\right),
+\end{equation}
+
+where \(N_v\) is the number of retained modes. The distillation operator is the
+projector onto this subspace,
+
+\begin{equation}
+\Box(t)=V(t)V^\dagger(t).
+\label{eq:distillation_projector}
+\end{equation}
+
+Applying this projector to a quark field gives the distillation-smeared field
+
+\begin{equation}
+\widetilde q(t)=\Box(t)q(t),
+\qquad
+\widetilde{\bar q}(t)=\bar q(t)\Box(t),
+\end{equation}
+
+with the spin indices left untouched by the spatial projector.
+
+The corresponding quark propagation can then be represented inside the
+retained Laplacian subspace. For quark flavor \(f\), with Dirac operator
+\(M_f\), the perambulator is
+
+\begin{equation}
+\tau_f(t,t_0)
+=
+V^\dagger(t) M_f^{-1}(t,t_0) V(t_0).
+\label{eq:perambulator}
+\end{equation}
+
+The perambulator carries the Laplacian-mode indices together with the quark
+spin indices. Importantly, once the flavor, gauge configuration, source time,
+and sink time are fixed, it is independent of the detailed interpolating
+operator in which it will later appear. The same propagation data can therefore
+be reused when constructing many operators and many elements of a correlation
+matrix.
+
+The operator-dependent spatial and spin structure is represented separately.
+For a generic single-hadron building block \(A(t)\), which may contain a Dirac
+matrix, a momentum phase, and spatial displacement or derivative structure, its
+projection into the distillation space has the form
+
+\begin{equation}
+\Phi_A(t)
+=
+V^\dagger(t)\,A(t)\,V(t).
+\label{eq:elemental}
+\end{equation}
+
+Such projected operator-dependent objects are commonly referred to as
+\emph{elementals}. Their detailed tensor structure depends on the interpolating
+operator, whereas the perambulators contain the quark propagation between time
+slices. Correlation functions in the distillation framework are consequently
+assembled from contractions of these two classes of objects.
+
+This separation is the feature of distillation most relevant to the present
+work. The expensive quark-propagation information can be prepared independently
+of a particular spectroscopy operator basis, while changes to momenta, spin
+structures, or spatial constructions modify the operator-dependent factors.
+\textsc{SymCorr} assumes the required Laplacian eigenvectors and propagation
+data are supplied externally and automates the subsequent transformation from
+the symbolic operator definition to the corresponding distillation-space
+objects and contractions.
 
 \subsection{From an interpolating operator to a numerical correlator}
 
