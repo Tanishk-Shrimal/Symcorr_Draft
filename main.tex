@@ -496,14 +496,92 @@ definition of the correlation function throughout the compilation process.
 
 \subsection{End-to-end workflow}
 
-% Present one high-level pipeline figure.
-% The figure should eventually show approximately:
-% symbolic operator
-%   -> Wick contraction
-%   -> physics/distillation lowering
-%   -> execution planning
-%   -> numerical runtime
-%   -> correlator output.
+The overall transformation performed by \textsc{SymCorr} is summarized in
+Fig.~\ref{fig:symcorr_workflow}. The workflow begins with the symbolic
+specification of the requested interpolating operators and correlators and ends
+with numerical correlator values. Between these endpoints, the calculation is
+progressively transformed from a physics description into an executable tensor
+program.
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (symbolic) at (0,0)
+        {Symbolic operators and correlators};
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (wick) at (0,-1.35)
+        {Automatic Wick contraction};
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (physics) at (0,-2.70)
+        {Physics representation and distillation lowering};
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (planning) at (0,-4.05)
+        {Global contraction and execution planning};
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (runtime) at (0,-5.40)
+        {Runtime data binding and numerical execution};
+  \node[draw, rounded corners, align=center,
+        minimum width=7.2cm, minimum height=0.8cm] (output) at (0,-6.75)
+        {Correlation-function output};
+
+  \draw[->, thick] (symbolic) -- (wick);
+  \draw[->, thick] (wick) -- (physics);
+  \draw[->, thick] (physics) -- (planning);
+  \draw[->, thick] (planning) -- (runtime);
+  \draw[->, thick] (runtime) -- (output);
+\end{tikzpicture}
+\caption{High-level SymCorr workflow. The upper stages determine the symbolic
+and distillation-space form of the correlation function, while the lower stages
+organize and execute the corresponding numerical contractions using externally
+supplied lattice data.}
+\label{fig:symcorr_workflow}
+\end{figure}
+
+At the first stage, the user supplies the source and sink operator definitions
+and specifies the correlator or correlation matrix to be constructed. These
+objects contain the physical information required to define the calculation,
+but they do not contain contraction paths, memory layouts, or device-specific
+execution choices.
+
+The second stage applies the symbolic transformations required by the field
+theory. The operator expressions are put into the form expected by the Wick
+engine, all allowed quark--antiquark pairings are generated, and the associated
+fermionic signs and coefficients are retained. The output of this stage is an
+exact contracted expression, still independent of how the required propagators
+will be stored or evaluated numerically.
+
+The contracted expression is then translated into a backend-independent
+physics representation and subsequently into the resources required for a
+distillation calculation. Quark lines are associated with propagation
+resources, while the operator-dependent spatial, color, and spin information is
+converted into the corresponding projected structures. This stage establishes
+which mathematical tensors and index connections are required without yet
+assigning them to concrete files, devices, or memory buffers.
+
+Once the numerical tensor problem is known, the requested correlators are
+considered together as a global contraction problem. Repeated resources and
+reusable computations can be identified across Wick terms and correlation-matrix
+elements, contraction orders can be selected, and the resulting operations can
+be scheduled with an associated memory plan. These transformations reorganize
+an already determined mathematical calculation; they do not alter the
+correlator defined by the earlier stages.
+
+Concrete lattice data enter at run time. The compiled resource requirements are
+bound to the supplied Laplacian eigenvectors, perambulators, and other supported
+external data, after which the required primitive tensors are materialized.
+Deployment decisions such as a feasible CPU or single-GPU execution mode and
+memory-compatible batching are made using the resources available on the
+machine where the calculation is run. The stored tensor operations are then
+evaluated to produce the requested complex correlator values.
+
+A practical consequence of this separation is that the compiled mathematical
+calculation and the data used to evaluate it have different roles. The former
+records what contractions must be carried out; the latter provide the
+configuration- and time-dependent numerical values needed for a particular
+execution. This distinction allows a compiled calculation to remain portable
+across compatible runs while hardware feasibility and data placement are
+resolved only when numerical execution is requested.
 
 \subsection{Current scope}
 
