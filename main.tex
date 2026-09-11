@@ -445,12 +445,54 @@ stages are represented and connected in the software.
 
 \subsection{Design goals}
 
-% Explain the design principles without implementation jargon first:
-% - preserve the physics description of operators;
-% - automate systematic algebra;
-% - separate symbolic construction from numerical execution;
-% - expose repeated structures for reuse;
-% - allow execution decisions to depend on available hardware.
+The design of \textsc{SymCorr} is guided by the requirement that the physical
+definition of a correlation function remain separate from the details of its
+numerical realization. A user should be able to specify the interpolating
+operators and the correlator to be evaluated without also specifying how the
+resulting tensor contractions will be ordered, where intermediate arrays will
+be stored, or which processor will execute them. These numerical choices may
+change between machines without changing the operator definition.
+
+A first design goal is therefore to preserve a physics-level description for as
+long as possible. Flavor, spin, color, momentum, spatial transformations,
+operator ordering, and source--sink orientation are established before backend
+or storage decisions are introduced. As the calculation is transformed into
+more concrete representations, later stages are required to preserve these
+established physical meanings rather than infer or reinterpret them from
+numerical tensor layouts.
+
+A second goal is to make the systematic algebra explicit and independently
+verifiable. Wick contraction, the identification of quark-propagation
+structure, and the translation to the distillation representation are treated
+as separate transformations. This separation makes it possible to test each
+stage against its own mathematical requirements and to reject unsupported or
+ambiguous constructions at the stage where they arise, rather than allowing a
+numerical backend to guess the intended physics.
+
+The third goal is to treat a correlation matrix as a single structured
+computational problem. As discussed in Sec.~\ref{sec:background}, different
+matrix elements can share propagation data, operator-dependent structures, and
+intermediate contractions. SymCorr therefore retains the relationships among
+the requested correlators long enough to identify repeated mathematical work
+across the full calculation, instead of compiling every matrix element as an
+independent numerical program.
+
+A fourth goal is to separate mathematical optimization from deployment. Choices
+such as contraction ordering and reuse of algebraically identical quantities
+are properties of the tensor-contraction problem itself. By contrast, choices
+such as whether a calculation fits in device memory, how much work can be
+processed together, or whether execution should occur on a CPU or GPU depend on
+the resources available when the calculation is run. Keeping these decisions in
+separate stages allows the same physics calculation to be evaluated on
+different hardware without embedding machine-specific assumptions into the
+symbolic description.
+
+Finally, the framework is designed so that increasingly sophisticated execution
+strategies do not require changes to the operator language. Memory planning,
+time-context batching, data reuse, and hardware-aware execution can therefore
+be developed below the physics boundary. This provides a practical route for
+improving numerical performance while retaining one inspectable and testable
+definition of the correlation function throughout the compilation process.
 
 \subsection{End-to-end workflow}
 
