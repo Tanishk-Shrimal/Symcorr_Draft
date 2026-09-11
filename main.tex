@@ -585,9 +585,53 @@ resolved only when numerical execution is requested.
 
 \subsection{Current scope}
 
-% List only the operator/correlator families that are demonstrably supported
-% by the package when the manuscript is prepared for submission.
-% Distinguish fully validated support from experimental/in-development support.
+The present implementation has a broader compiler and runtime capability than
+its independently validated production envelope. These two notions of scope
+are therefore distinguished explicitly in this work.
+
+The strongest validation presently applies to exact-distillation two-point
+calculations using the supported HDF5 data adapters. Complete complex
+correlators have been compared with independent Chroma XML/HDF5 results for
+rest- and moving-frame single mesons and for a set of rest- and moving-frame
+bilocal two-hadron operators. For the tested nonzero source--sink separations,
+the single-meson and bilocal results agree with the external calculation at
+approximately machine precision. These pathways define the current
+production-ready validation envelope.
+
+A local four-quark \(T_{1g}/T_1^+\) contraction has also been tested at
+\(N_v=45\). Its complex value agrees with the independent reference after the
+known external operator-normalization relation is taken into account. SymCorr
+retains its native mathematical normalization and does not insert an automatic
+global volume correction. The corresponding \(N_v=60\) calculation was not
+completed because of memory pressure. The four-quark result is therefore an
+important numerical validation case, but it is not assigned the same
+production status as the single-meson and bilocal pathways.
+
+Beyond this external-data envelope, the compiler and runtime contain additional
+capabilities. Representative meson, baryon, and tetraquark calculations are
+used in compiler and runtime regression fixtures, and generalized/POINT-current
+propagation resources together with disconnected or closed-loop paths are
+represented in the current pipeline. These tests establish software behavior
+and algebraic consistency, but they are not substitutes for comparison with
+independent lattice data. Accordingly, these pathways are treated as
+implemented capabilities whose physics validation remains separate.
+
+The current runtime executes within a single process. Hardware discovery can
+inspect the CPUs, host memory, and CUDA devices visible to the process, and the
+deployment layer can choose a resident CPU execution, a resident single-GPU
+execution, or a host-staged single-GPU execution when appropriate. It does not
+currently shard one calculation over multiple GPUs or CPUs, spill beyond host
+memory, or provide MPI/multi-process HDF5 execution. These are execution
+boundaries rather than restrictions on the symbolic definition of the
+correlator.
+
+Finally, SymCorr begins after the expensive gauge-field inputs required by a
+distillation calculation have been produced. The package consumes externally
+supplied Laplacian eigenvectors, perambulators, and other supported numerical
+resources; generation of the Laplacian eigenvectors and inversion of the Dirac
+operator are outside its scope. Later sections retain these distinctions when
+describing examples, validation, and performance so that implemented
+functionality is not conflated with independently validated production use.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Symbolic Representation of Interpolating Operators}
