@@ -1189,8 +1189,85 @@ discussed in Sec.~\ref{sec:execution}.
 
 \subsection{Output of the contraction stage}
 
-% Explain what symbolic object/representation is passed to the next stage,
-% without exposing unnecessary implementation detail.
+For each normalized basis correlator, the Wick engine returns an ordered
+collection of symbolic Wick terms. A convenient schematic description of one
+such term is
+
+\begin{equation}
+W_\alpha
+=
+\left(
+ s_\alpha,
+ c_\alpha,
+ \mathcal P_\alpha,
+ \mathcal E_\alpha,
+ \mathcal C_\alpha
+\right),
+\label{eq:wick_term_contents}
+\end{equation}
+
+where \(s_\alpha\) is the fermionic sign, \(c_\alpha\) is the algebraic
+coefficient, \(\mathcal P_\alpha\) is the explicit set of paired quark and
+antiquark fields, \(\mathcal E_\alpha\) is the contracted symbolic expression,
+and \(\mathcal C_\alpha\) records the locality-graph components inferred from
+the pairing. These quantities remain symbolic: no perambulator, distillation
+kernel, tensor shape, external file, memory buffer, or execution device has yet
+been introduced.
+
+The pairing \(\mathcal P_\alpha\) is retained directly rather than being
+recoverable only from a printed algebraic expression. Each entry identifies the
+quark endpoint and the antiquark endpoint of one logical propagation line,
+including their flavor and symbolic spin, color, and position labels. This
+explicit pairing is the authoritative input used by the next compiler boundary
+to construct logical quark lines. It also retains the information needed to
+associate field-level derivatives, transports, shifts, and spatial
+representations with the correct endpoints.
+
+The symbolic expression \(\mathcal E_\alpha\) retains the non-fermionic tensor
+content inherited from the original operators and represents contracted quark
+lines symbolically. In particular, spin matrices, color tensors, gauge-link
+objects, and their index connectivity remain visible rather than being replaced
+by numerical arrays at the Wick stage. The later physics-lowering pass reads
+these symbolic tensors and the explicit pairing together; it does not infer the
+quark-line topology from numerical tensor shapes.
+
+In addition to the algebraic term, SymCorr computes a locality graph from the
+pairing. Position labels form the graph vertices and a contracted quark line
+connects the position labels of its two endpoints. Each resulting graph
+component records both the locality labels that it contains and the operator
+insertions touched by those labels. The present Wick-level topology label is a
+coarse diagnostic: a term is classified as \emph{disconnected} when all
+components are local to individual operator insertions, \emph{connected} when
+there are spanning components and no purely local component, and \emph{mixed}
+when spanning and local components occur together. This terminology does not
+assert that the complete numerical tensor network consists of one connected
+component.
+
+For composite operators, the same component records provide an additional
+structural diagnostic. The current \texttt{factorized} property is true when no
+locality component spans more than two operator insertions; a component touching
+more than two insertions marks a multi-operator exchange structure. This
+information is useful for inspecting the generated Wick terms, but it is kept
+separate from later numerical common-subexpression analysis and contraction
+planning.
+
+When a basis correlator originates from a linear combination, its previously
+computed complex basis weight is applied to the Wick-term coefficient while the
+cached sign, pairing, expression, and component structure remain unchanged. The
+next lowering step then combines sign and coefficient and translates each Wick
+term into a backend-independent logical correlator. In the current PhysicsIR,
+the resulting records contain logical quark lines, spin tensors, color tensors,
+gauge tensors, field-operation information, and momentum assignments. The
+Wick-level locality-component and topology diagnostics are not part of this
+PhysicsIR data contract.
+
+This boundary is important because it marks the end of the purely symbolic Wick
+problem. By the time a term leaves this stage, SymCorr has fixed which fermion
+fields contract, the associated Grassmann sign, the algebraic weight, and the
+symbolic operator structures that accompany those propagation lines. The next
+stage may reorganize this information into backend-independent physics records,
+but it is not permitted to invent a new pairing or reinterpret the fermionic
+sign.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Lowering to the Distillation Representation}
