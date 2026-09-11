@@ -1124,8 +1124,68 @@ is already fixed by the symbolic field ordering.
 
 \subsection{Canonicalization and symbolic simplification}
 
-% Describe only simplifications that are actually implemented.
-% Separate exact algebraic equivalence from performance optimizations.
+Canonicalization in SymCorr is used to identify symbolic descriptions that are
+mathematically equivalent under rules that are explicit in the implementation.
+It is not used to guess additional field-theory identities. In particular, the
+frontend retains the expression exactly as supplied by the user, while a
+separate structural identity removes dependence on arbitrary dummy-index names.
+Spin, color, and position labels are alpha-renamed deterministically, and the
+momentum map is transformed through the same position-label mapping. Ordered
+factor structure, flavor, transformations, and momentum values remain part of
+the operator identity, whereas user metadata is treated as annotation rather
+than symbolic physics.
+
+A second canonicalization step occurs at the compiler boundary before Wick
+contraction. Field-operation chains are normalized without mutating the
+frontend operator. For pure coordinate shifts and gauge-covariant parallel
+transport, adjacent inverse lattice hops cancel. For example,
+
+\begin{equation}
+(+x,-x,+y)\longrightarrow(+y).
+\label{eq:path_canonicalization}
+\end{equation}
+
+Nested field operations are then fused into a compiler-internal composite
+operation that preserves their order. Other primitive operations are retained
+unchanged by this pass, and the operator momentum assignments and metadata are
+copied to the normalized compiler-side representation.
+
+This normalization is deliberately performed before linear-combination terms
+are merged. Two frontend operators can therefore remain visibly different as
+user objects yet become the same compiler basis operator when, for example,
+their transport paths differ only by adjacent inverse hops. Once normalized,
+weights multiplying identical ordered basis-operator tuples are added. The
+current implementation removes a resulting basis weight when its magnitude is
+smaller than \(10^{-15}\). For a two-point correlation matrix, the corresponding
+simplification pass performs the same coefficient aggregation separately within
+each matrix element for identical normalized sink--source basis pairs.
+
+The same normalized operator identity is also used at the Wick-cache boundary.
+The cache key is the complete ordered tuple of basis-operator insertions rather
+than an unordered set. Consequently, repeated occurrences of the same
+normalized symbolic correlator can reuse an already generated Wick expansion,
+while a physically different operator ordering remains a distinct contraction
+problem. This reuse avoids repeated symbolic work but does not alter the set of
+Wick pairings or their fermionic signs.
+
+The scope of these transformations is intentionally restricted. The pre-Wick
+normalizer does not commute or reorder fermion factors, replace spin or color
+structures using additional identities, infer cyclic trace equivalences, or
+simplify expressions using numerical tensor values. Such transformations could
+change the field ordering or require assumptions that belong to later compiler
+representations. At this stage SymCorr therefore applies only the
+canonicalization rules for which equivalence is explicit in the symbolic
+algebra.
+
+There is a separate simplification mechanism later in the compilation pipeline,
+after the Wick terms have been lowered to numerical contraction graphs. At that
+stage exact global common-subexpression analysis can canonicalize reusable
+tensor-network components and combine exactly equal complete Wick terms within
+a correlator. The later complete-term aggregation uses exact coefficient
+cancellation for scalar terms rather than the \(10^{-15}\) tolerance used for
+pre-Wick operator-combination weights. Keeping these two stages distinct avoids
+conflating symbolic algebra with numerical contraction reuse; the latter is
+discussed in Sec.~\ref{sec:execution}.
 
 \subsection{Output of the contraction stage}
 
