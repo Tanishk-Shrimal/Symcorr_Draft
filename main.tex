@@ -780,8 +780,108 @@ lines.
 
 \subsection{Constructing composite operators}
 
-% Explain how elementary objects are combined into meson, baryon and other
-% supported interpolating operators.
+Composite operators are constructed by multiplying the elementary symbolic
+objects introduced above while preserving their order and typed-index
+connectivity. This gives one common representation for operator structures of
+different hadronic complexity rather than requiring a separate symbolic
+language for each hadron family. Schematically, a local meson-like operator may
+have the form
+
+\begin{equation}
+\mathcal O_M(x)
+=
+\bar q_{f_1}(x)_{a\alpha}
+\Gamma_{\alpha\beta}
+q_{f_2}(x)_{a\beta},
+\label{eq:schematic_meson_operator}
+\end{equation}
+
+whereas a local three-quark structure can be written as
+
+\begin{equation}
+\mathcal O_B(x)_\delta
+=
+\epsilon_{abc}
+(\Gamma_D)_{\alpha\beta}
+q_{f_1}(x)_{a\alpha}
+q_{f_2}(x)_{b\beta}
+q_{f_3}(x)_{c\delta}.
+\label{eq:schematic_baryon_operator}
+\end{equation}
+
+These equations illustrate the frontend composition rules rather than imposing
+one fixed physical choice of \(\Gamma\), \(\Gamma_D\), or flavor content.
+SymCorr provides a convenience constructor for the second pattern, but the
+result is the same ordinary symbolic operator representation used elsewhere in
+the frontend.
+
+Spatially extended operators are built by attaching transformations to the
+relevant constituent fields before forming the product. A derivative,
+parallel-transport path, shift, or projection therefore remains associated with
+the field on which it acts. Likewise, explicit gauge links and color tensors
+can appear as factors in the expression when the operator definition requires
+them. This allows local and spatially structured operators to share the same
+algebraic composition rules.
+
+Products can also combine complete operators. This is the mechanism used to
+retain constituent structure in multi-local or multi-hadron constructions. If
+\(H_1\) and \(H_2\) are independently defined operators with distinct locality
+labels and momentum assignments, their product has the schematic form
+
+\begin{equation}
+\mathcal O_{12}
+=
+H_1(\mathbf p_1)\,H_2(\mathbf p_2),
+\qquad
+\mathbf P=\mathbf p_1+\mathbf p_2.
+\label{eq:composite_hadron_product}
+\end{equation}
+
+The symbolic expressions are concatenated and the constituent momentum maps are
+merged. Position labels associated with momentum-bearing constituents must be
+distinct when such operators are combined; an accidental collision is rejected
+rather than silently identifying two locality groups. In this way the
+constituent momenta and the total momentum remain simultaneously available to
+later stages.
+
+A second form of composition is a formal linear combination of complete basis
+operators,
+
+\begin{equation}
+\mathcal O
+=
+\sum_i c_i\,\mathcal O_i .
+\label{eq:operator_linear_combination}
+\end{equation}
+
+This is represented separately from the internal product structure of each
+\(\mathcal O_i\). The frontend supports addition, subtraction, scalar
+multiplication, and products of such combinations. Multiplication is
+distributive, so the product of two sums generates the corresponding products
+of basis operators. Equivalent basis terms are combined by their coefficients,
+and terms whose resulting coefficient is numerically zero at the frontend
+tolerance are removed.
+
+Hermitian conjugation acts on the full symbolic construction rather than only
+on its outer label. For a product, the factor order is reversed and each factor
+is conjugated according to its symbolic rule; for a linear combination the
+coefficients are complex conjugated and each basis operator is daggered. The
+associated momenta reverse sign as discussed above. These operations allow a
+source operator to be derived from a sink definition without manually
+reconstructing its field ordering, spin structure, or momentum orientation.
+
+Correlators can contain either basis operators or such linear combinations.
+The latter are not passed to Wick contraction as an opaque sum. Instead, the
+correlator is expanded into weighted basis-operator correlators, after which
+Wick contraction is applied to each definite symbolic field product. This keeps
+linearity separate from the fermionic pairing problem and ensures that the
+coefficients multiplying the final contraction terms remain explicit.
+
+The practical consequence is that meson-like, baryon-like, tetraquark, and
+multi-hadron constructions can be assembled from the same small symbolic
+vocabulary. Their differences reside in the field content, tensor
+connectivity, transformations, momenta, and linear combinations specified by
+the operator, not in separate downstream execution interfaces.
 
 \subsection{Simple operator examples}
 
