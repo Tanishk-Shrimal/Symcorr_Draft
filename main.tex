@@ -1276,8 +1276,81 @@ sign.
 
 \subsection{Distillation primitives}
 
-% Define the numerical building blocks that the symbolic expressions are
-% lowered to. Keep notation consistent with Sec.~\ref{sec:background}.
+The input to distillation lowering is the validated PhysicsIR described at the
+end of Sec.~\ref{sec:wick}. At this boundary the fermionic pairing and
+coefficient of each Wick contribution are already fixed. The purpose of the
+distillation layer is therefore not to redo the field-theory algebra, but to
+translate the physical records into a small set of objects that describe the
+spatial/color structures and propagation resources required by a distillation
+calculation.
+
+The first primitive is a \emph{projected field endpoint}. Every endpoint in
+PhysicsIR carries an explicit spatial representation, currently either LapH or
+POINT, together with any field-local derivative, transport, or shift operations.
+For a LapH endpoint, the compiler realizes the contribution according to the
+orientation of the fermion field,
+
+\begin{equation}
+q_{\mathrm{LAPH}} \longmapsto V,
+\qquad
+\bar q_{\mathrm{LAPH}} \longmapsto V^\dagger,
+\label{eq:laph_endpoint_realization}
+\end{equation}
+
+whereas an explicitly POINT endpoint remains a distinct point contribution.
+This translation records which spatial object is required; it does not load an
+eigenvector tensor or construct a numerical array. The operations attached to
+the original endpoint remain associated with the realized field so that their
+placement is not reconstructed later from tensor shape or ordering.
+
+Before these projected fields are assembled, SymCorr partitions each logical
+correlator into spatial--color components. The partition is determined from the
+incidence of field endpoints, position labels, color labels, explicit color
+tensors, and gauge-link tensors. Each connected component containing at least
+one field endpoint becomes an operator vertex. Spin tensors do not determine
+this partition. Consequently, the decomposition is independent of whether the
+original symbolic object was described as a meson, baryon, tetraquark, or
+multi-hadron operator; it follows only from the explicit spatial and color
+connectivity already present in PhysicsIR.
+
+A realized spatial--color component is represented by a \texttt{KernelRecipe}.
+Conceptually, this recipe specifies the operator-dependent projected object that
+will ultimately be built from the required eigenvector or point contributions,
+field-local spatial transformations, color tensors, gauge tensors, position
+variables, and momentum projections. For LapH fields its external spatial legs
+are LapH-mode indices; POINT fields remain distinguishable and retain a
+color-like external spatial leg. The recipe is therefore a compiler description
+of the object to be materialized rather than the materialized tensor itself.
+
+Spin structure is kept as a separate primitive. Gamma matrices and other spin
+tensors have already been converted into explicit \texttt{SpinTensorRecord}
+objects in PhysicsIR, and they are deliberately excluded from the identity of a
+spatial/color \texttt{KernelRecipe}. This separation mirrors the distillation
+factorization discussed in Sec.~\ref{sec:background}: the reusable spatial
+object and the spin structure that contracts with it need not be treated as one
+opaque tensor at the compiler boundary. It also allows two contributions with
+the same spatial/color construction but different spin structure to share the
+same spatial resource where the later contraction graph permits it.
+
+The remaining primitive class describes quark propagation between these
+operator-dependent objects. From the exact logical quark lines, later stages
+reconstruct open fermion paths and closed cycles and assign corresponding
+propagation requirements. For an open path this requirement is represented by a
+\texttt{PropagationRecipe}; with no inserted current it denotes an ordinary
+perambulator requirement, while supported explicit POINT-current insertions can
+produce a generalized propagation requirement. The detailed construction and
+current implementation boundary of these resources are discussed below in the
+subsection on propagation resources.
+
+These objects should be distinguished from concrete numerical data. At this
+stage a kernel recipe is not yet an evaluated elemental, and a propagation
+recipe is not an in-memory perambulator. No filename, HDF5 group, source time,
+tensor shape, physical buffer, CPU/GPU placement, or contraction schedule is
+chosen by distillation realization. Those choices belong to later graph,
+resource-binding, materialization, and execution stages. The output of this
+layer is therefore a more concrete statement of the required distillation
+calculation while remaining independent of a particular data layout or
+machine.
 
 \subsection{Operator-dependent structures}
 
