@@ -1354,8 +1354,122 @@ machine.
 
 \subsection{Operator-dependent structures}
 
-% Explain how the spatial/operator content is realized in Laplacian eigenvector
-% space. Use the package terminology only after the physical object is clear.
+The operator-dependent part of the distillation calculation is constructed from
+the spatial--color components identified above rather than from a fixed library
+of meson, baryon, or tetraquark tensor shapes. For one component \(A\), let
+\(\mathbf x_r\) denote its position variables, \(\mathbf p_r\) the associated
+momenta, and \(k_i\) the external LapH-mode indices carried by its projected
+fields. A useful schematic form of the corresponding spatial kernel is
+
+\begin{equation}
+\mathcal K_A(\{k_i\};t)
+=
+\sum_{\{\mathbf x_r\},\{a_i\}}
+\exp\!\left(
+ i\sum_r \mathbf p_r\!\cdot\!\mathbf x_r
+\right)
+\mathcal C_A(\{a_i\})
+\mathcal U_A(\{\mathbf x_r\},\{a_i\})
+\prod_i
+\mathcal V_i(\mathbf x_{r(i)},a_i,k_i;t),
+\label{eq:generic_operator_spatial_kernel}
+\end{equation}
+
+where \(\mathcal C_A\) denotes the explicit color-tensor structure,
+\(\mathcal U_A\) denotes any explicit gauge-link structure represented in the
+component, and \(\mathcal V_i\) denotes the appropriately oriented LapH
+factor, including the field-local spatial operations attached to that endpoint.
+For a quark endpoint this factor is built from \(V\), while for an antiquark
+endpoint it is built from the conjugate/projected orientation corresponding to
+\(V^\dagger\). Equation~\eqref{eq:generic_operator_spatial_kernel} is schematic:
+its purpose is to display the information retained by the compiler rather than
+to impose one fixed tensor rank or one fixed pattern of spatial indices.
+
+For example, a local bilinear whose two LapH fields are contracted to a color
+singlet gives a two-mode spatial kernel of the schematic form
+
+\begin{equation}
+K_{kl}^{(\mathbf p)}(t)
+=
+\sum_{\mathbf x,a}
+ e^{+i\mathbf p\cdot\mathbf x}
+ \left[\mathcal D_{\bar q}V(t)\right]^*_{\mathbf x a k}
+ \left[\mathcal D_q V(t)\right]_{\mathbf x a l},
+\label{eq:bilinear_spatial_kernel}
+\end{equation}
+
+where \(\mathcal D_q\) and \(\mathcal D_{\bar q}\) stand for the spatial
+operations attached to the two field endpoints. The spin matrix is not folded
+into this kernel. In the simplest separable case the familiar elemental-like
+object is obtained only after the independent spin structure is attached, for
+example through a factor \(\Gamma_{\alpha\beta}K_{kl}\). This is the concrete
+reason that SymCorr does not use the full spin--spatial elemental as its
+reusable spatial resource identity.
+
+The same construction applies without changing the lowering algorithm when the
+component has higher rank. For a local three-quark color-singlet structure, the
+spatial part has the schematic form
+
+\begin{equation}
+B_{k_1k_2k_3}^{(\mathbf p)}(t)
+=
+\sum_{\mathbf x,a,b,c}
+ e^{+i\mathbf p\cdot\mathbf x}
+ \epsilon_{abc}
+ \left[\mathcal D_1 V(t)\right]_{\mathbf x a k_1}
+ \left[\mathcal D_2 V(t)\right]_{\mathbf x b k_2}
+ \left[\mathcal D_3 V(t)\right]_{\mathbf x c k_3}.
+\label{eq:three_quark_spatial_kernel}
+\end{equation}
+
+The diquark spin matrix and any remaining open spin index are represented
+separately. Thus the difference between the bilinear and three-quark examples
+appears through the number of projected fields and their explicit color
+connectivity, not through a hadron-specific branch in the distillation
+compiler.
+
+Momentum is part of the spatial resource itself. SymCorr retains one momentum
+assignment for each position group in a component and uses the phase convention
+\(e^{+i\mathbf p\cdot\mathbf x}\); Hermitian conjugation has already reversed
+the corresponding source momentum where required. For a component containing
+several independent position labels, the spatial object contains the product of
+those phase factors, equivalently the exponential shown in
+Eq.~\eqref{eq:generic_operator_spatial_kernel}. This keeps constituent momenta
+visible for bilocal and multi-local constructions rather than replacing them by
+only the total momentum.
+
+The compiler assigns each \texttt{KernelRecipe} a deterministic spatial
+resource identity. That identity is invariant under dummy position/color
+renaming but includes the projected-field orientations, field-local operations,
+color tensors, explicit gauge connectivity, and momentum assignments. Spin and
+quark flavor are deliberately excluded from this spatial identity. Spin appears
+as separate primitive tensor nodes in the subsequent contraction graph, while
+the LapH eigenvector subspace itself is a gauge-field spatial object rather
+than a flavor-dependent quark propagator. Equal spatial resource identities
+therefore expose possible reuse without yet merging the distinct occurrences
+that appear in different Wick terms or matrix elements; that global reuse is a
+later optimization step.
+
+For the currently executable exact-distillation path, the compatibility bridge
+turns a spatial recipe into primitive operations for the required eigenvector
+factors, momentum phases, and the supported \(\delta\) and \(\epsilon\) color
+tensors. Derivative information remains attached to the field and can be
+realized by the numerical tensor provider from derivative eigenvector data or,
+when configured, from the underlying eigenvectors and gauge links. The recipe
+layer is broader than this executable subset: explicit \texttt{GaugeLink}
+tensor nodes can be represented in the spatial/color component, but the current
+numerical kernel ISA rejects such standalone gauge-tensor nodes rather than
+silently approximating them. This distinction is retained here so that symbolic
+representability is not presented as equivalent to validated numerical
+execution.
+
+The result of this lowering is therefore an operator-dependent spatial resource
+with explicit LapH ports, together with separate spin tensors whose indices are
+connected only when the primitive contraction graph is built. This is the form
+in which SymCorr carries the operator structure forward to the propagation and
+contraction stages: sufficiently concrete to determine the required numerical
+tensors, but still independent of the contraction order, memory layout, or
+execution device.
 
 \subsection{Propagation resources}
 
