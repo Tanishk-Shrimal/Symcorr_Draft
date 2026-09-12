@@ -1598,8 +1598,108 @@ this paper.
 
 \subsection{Construction of contraction tasks}
 
-% Explain the transition from a correct symbolic expression to a collection of
-% numerical contractions that can be planned and executed.
+Once the operator-dependent kernels, propagation requirements, and spin tensors
+have been identified, SymCorr converts each complete PhysicsIR Wick contribution
+into a primitive tensor-contraction graph. This graph is the first compiler
+representation in which the numerical contraction problem is explicit. It
+contains the tensors that must participate in the Wick term and the indices
+that connect them, but it still contains no decision about the order in which
+those tensors will be contracted.
+
+For a Wick term \(\alpha\), let \(T_{\alpha n}\) denote its primitive tensor
+occurrences and let \(I_{\alpha n}\) denote the ordered set of contraction
+indices attached to tensor \(n\). The graph represents the contribution
+schematically as
+
+\begin{equation}
+C_\alpha
+=
+c_\alpha
+\sum_{\{i\}_{\mathrm{internal}}}
+\prod_n
+T_{\alpha n}(I_{\alpha n}),
+\label{eq:primitive_contraction_task}
+\end{equation}
+
+where \(c_\alpha\) is the coefficient already fixed in PhysicsIR. Indices that
+occur on two primitive tensor legs are summed internal indices. An index that
+occurs on only one leg remains a free output index, so the same graph
+representation can describe both scalar correlator terms and terms with an
+explicit open index. The graph validator rejects an index attached to more than
+two primitive legs rather than assigning an ambiguous multiway contraction
+meaning.
+
+The current primitive graph has only three tensor kinds: operator-dependent
+spatial kernels, propagation tensors, and spin tensors. A kernel node exposes
+one port for every surviving external spatial leg of its
+\texttt{KernelRecipe}. For a LapH kernel these ports become LapH-mode
+contraction indices. A spin node exposes its left and right spin indices. A
+propagation node connects the corresponding kernel and spin spaces using the
+canonical leg order
+
+\begin{equation}
+(\text{sink mode},\text{sink spin},
+ \text{source mode},\text{source spin}).
+\label{eq:primitive_propagation_ports}
+\end{equation}
+
+The graph therefore records tensor connectivity explicitly rather than relying
+on a later numerical backend to infer contractions from array shape or node
+ordering.
+
+Fermion topology determines which propagation nodes are inserted. Along an open
+fermion path, POINT bilinear transitions that satisfy the generalized-resource
+requirements described above are absorbed into the corresponding propagation
+recipe. Their spatial kernel and spin tensors are then omitted as separate graph
+nodes so that the current is not counted twice. A non-absorbed transition must
+currently have LapH endpoints and remains explicit through its kernel and spin
+tensors. Similarly, a standalone POINT spatial kernel is not admitted to the
+current exact-distillation primitive graph; connected POINT bilinears must be
+realized through the supported generalized propagation route. Mixed POINT/LapH
+transitions that cannot be represented by these existing resources are rejected
+at this boundary rather than assigned a guessed tensor realization.
+
+Each primitive tensor occurrence carries two different identities. The
+\emph{node identity} distinguishes the occurrence inside this particular Wick
+term, while the \emph{resource identity} describes the reusable mathematical
+tensor that the occurrence requires. Two kernel occurrences, for example, may
+have the same spatial resource identity but different node identities because
+they occupy different places in the term. The primitive-graph stage
+intentionally preserves both occurrences. No deduplication is performed merely
+because their resource identifiers agree.
+
+This distinction is necessary because resource equality and tensor occurrence
+are different statements. A Wick term may use the same perambulator resource
+more than once, and those two uses must retain distinct contractions even though
+they may ultimately be materialized from the same external data source. The
+same applies to repeated spatial kernels and spin matrices. Occurrence-specific
+ports and index bindings therefore remain attached to each node until a later
+global analysis proves what can be reused without changing the contraction.
+
+The graph is validated before it is passed to optimization. Node identifiers
+must be unique, a tensor cannot expose the same local port twice, contraction
+indices cannot be empty, and no global index may have degree greater than two.
+A graph in which every index has degree two is a closed scalar contraction;
+degree-one indices define its external interface. These checks establish the
+well-formed numerical tensor network independently of any proposed contraction
+path.
+
+SymCorr constructs one such \texttt{WickContractionGraph} for every complete
+PhysicsIR Wick term. Equal primitive resources therefore remain visible across
+terms and across correlation-matrix elements, but they have not yet been
+combined. The next stage operates on this collection globally: it deduplicates
+exactly equal resource requirements, canonicalizes reusable connected tensor
+components, and aggregates exactly equal complete terms before contraction-order
+selection. Those operations belong to the execution and optimization framework
+in Sec.~\ref{sec:execution}; they are deliberately separated from the task
+construction described here.
+
+At the end of this subsection the physics lowering is complete. The compiler has
+fixed the coefficient, the required primitive tensor resources, and their exact
+index connectivity. It has not chosen pairwise contraction order, common
+intermediate expressions, execution schedule, memory buffers, hardware device,
+or numerical tensor values. Those remaining decisions can therefore optimize an
+already fixed tensor problem without modifying the physical correlator.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Execution and Optimization Framework}
