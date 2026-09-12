@@ -1473,7 +1473,128 @@ execution device.
 
 \subsection{Propagation resources}
 
-% Explain how quark propagation/perambulators enter the lowered expression.
+After the operator-dependent kernels have been identified, the Wick quark lines
+must be mapped to the propagation tensors that connect their spatial and spin
+ports. SymCorr performs this step from the exact fermion topology rather than
+from operator names or tensor shapes. Each open quark path is decomposed into
+its ordered Wick-propagator segments and any operator-local transitions that
+join successive segments. The result is a logical propagation requirement; the
+compiler still does not load or construct a numerical propagator.
+
+For an ordinary path containing one Wick segment and no absorbed insertion, the
+required object is the usual distillation perambulator introduced in
+Eq.~\eqref{eq:perambulator}. The corresponding \texttt{PropagationRecipe}
+records the exact source and sink spatial kernels, the particular open port on
+each kernel, the flavor carried by the Wick segment, and the spatial
+representation of the two endpoints. Schematically, its numerical realization
+has the canonical index structure
+
+\begin{equation}
+\tau_f(t_{\mathrm{snk}},t_{\mathrm{src}})
+\equiv
+\tau_{f;\,k\alpha,\,l\beta}
+(t_{\mathrm{snk}},t_{\mathrm{src}}),
+\label{eq:propagation_resource_layout}
+\end{equation}
+
+where \((k,\alpha)\) are the sink LapH-mode and spin indices and
+\((l,\beta)\) are the source indices. The orientation is inherited from the
+Wick pairing and is therefore fixed before any external storage convention is
+considered.
+
+Open paths can also contain explicit local current insertions. In the current
+compiler, a current is absorbed into a generalized propagation resource only
+when its quark and antiquark endpoints are explicitly represented as POINT
+fields belonging to one spatial--color component. For one insertion, the
+logical structure is schematically
+
+\begin{equation}
+\mathcal T_{f_0\to f_1}^{J}
+(t_2,t_1,t_0),
+\label{eq:generalized_propagation_schematic}
+\end{equation}
+
+where the propagation segment before the current carries flavor \(f_0\), the
+segment after it carries flavor \(f_1\), and \(J\) denotes the specified local
+current structure. SymCorr does not assume that the two flavors are equal. A
+flavor-changing current is represented as a change between adjacent propagation
+segments rather than as a flavor change inside one Wick segment.
+
+The generalized recipe retains substantially more information than only the
+name of the current. For every absorbed insertion it stores the spatial kernel,
+the exact incoming and outgoing kernel ports, the incoming and outgoing
+flavors, the endpoint spin labels, and the independent spin tensors connecting
+those labels. Several POINT bilinear insertions can be retained in path order by
+the compiler representation. The deterministic propagation-resource identity
+therefore depends on whether the object is ordinary or generalized, the source
+and sink representations, the ordered sequence of segment flavors, and the
+canonical spatial and spin content of the insertions. It deliberately does not
+depend on a filename, HDF5 dataset name, source time, device, or execution
+strategy.
+
+This logical identity is separated from the occurrence at which the resource is
+used. During resource binding, each compiler propagation resource is mapped to
+one exact external tensor source. The occurrence placement then supplies the
+frontend source, insertion, and sink operator slots, and the run-time
+operator-time context converts those slots into concrete Euclidean times. Thus
+two uses of the same mathematical propagation resource can request different
+time slices without becoming different compiler resources. Conversely, the
+binding layer does not use a fallback such as ``look up a tensor by flavor'';
+ordinary and generalized resources are bound by their exact resource identity.
+
+External storage conventions are normalized only when a concrete propagation
+tensor is materialized. The canonical tensor expected by the contraction graph
+is ordered as sink mode/spin followed by source mode/spin. For a fixed-source
+file containing
+\(P_{\mathrm{file}}(t,t_0)\), a direct request with
+\(t_{\mathrm{src}}=t_0\) uses the stored orientation after the configured axis
+conversion. If instead \(t_{\mathrm{snk}}=t_0\), SymCorr reconstructs the
+reverse propagation using \(\gamma_5\)-Hermiticity,
+
+\begin{equation}
+P(t_0,t)
+=
+\gamma_5\,
+P_{\mathrm{file}}(t,t_0)^\dagger
+\,\gamma_5 .
+\label{eq:fixed_source_reverse_propagation}
+\end{equation}
+
+The Hermitian adjoint exchanges both mode and spin source/sink spaces; a simple
+complex conjugation is not equivalent. If neither requested endpoint is the
+fixed source, that tensor cannot be obtained from the file and materialization
+fails rather than inventing missing propagation data.
+
+The materialization adapter also owns external source-field and spin-basis
+conventions. In the validated QUDA-LapH input path, for example, a stored
+\texttt{qdagger} source convention is converted to SymCorr's canonical
+\(\langle q\bar q\rangle\) convention using the configured spin basis before
+the tensor reaches the generic numerical executor. Likewise, a reverse
+fixed-source transformation is applied in the adapter exactly once. The
+contraction executor therefore consumes the propagation tensor in the
+orientation requested by the compiler and does not apply an additional
+post-hoc conjugation or \(\gamma_5\) correction.
+
+Closed fermion cycles use a related but distinct lowering. For an exact LapH
+closed cycle, SymCorr does not request a separately stored disconnected-loop
+tensor. Instead, every Wick segment is represented by an ordinary perambulator
+and the successive operator-local spatial and spin tensors close the cyclic
+contraction. This route currently assumes ordinary all-time distillation
+perambulators for the required segments. A genuinely POINT disconnected loop
+cannot be reconstructed from those perambulators because they do not contain
+the full point-space all-to-all propagator; such a loop therefore requires
+additional stochastic, all-to-all, or precomputed-loop information and is
+rejected by the present exact-distillation lowering.
+
+The compiler and resource-binding layers can consequently represent ordinary
+perambulators, ordered generalized POINT-current resources, and exact-LapH
+closed-cycle propagation structure within one topology-driven framework. Their
+validation status is nevertheless different. The ordinary perambulator path is
+part of the external-data validation envelope described in
+Sec.~\ref{sec:overview}, whereas generalized propagation inputs and the broader
+closed-loop pathways should be regarded as implemented compiler/runtime
+capabilities unless a separate external numerical validation is stated later in
+this paper.
 
 \subsection{Construction of contraction tasks}
 
