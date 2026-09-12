@@ -1711,8 +1711,113 @@ already fixed tensor problem without modifying the physical correlator.
 
 \subsection{Backend-independent execution representation}
 
-% Introduce logical/physical plans only if these remain central abstractions in
-% the final implementation.
+The execution layer begins from the collection of primitive Wick-contraction
+graphs constructed in Sec.~\ref{sec:distillation_lowering}. Its first purpose is
+to turn those term-local tensor networks into one hardware-independent
+representation of the complete requested calculation. The representation is
+progressively refined through global exact reuse, contraction-order selection,
+partial-intermediate reuse, and finally an explicit logical dependency graph.
+At every one of these stages the compiler is still describing mathematical
+values and operations rather than a schedule for a particular CPU or GPU.
+
+The first global representation is a \texttt{GlobalComputationDAG}. Primitive
+resource requirements are identified by exact resource identity, while tensor
+occurrences retain their operator-slot placement. Connected pieces of the
+primitive tensor network are canonicalized independently of temporary node names
+and dummy contraction-index labels. One canonical component computation can
+therefore be referenced by several Wick terms or several correlation-matrix
+elements without treating occurrence-specific placement as part of the reusable
+resource itself. The requested correlators remain explicit as sums of Wick
+terms, so global reuse does not collapse distinct physical outputs.
+
+Each unique connected component is then assigned a backend-independent
+contraction plan. SymCorr presently delegates the algebraic path search to
+\texttt{opt\_einsum}, but stores the result in its own compiler representation.
+A plan is an ordered sequence of contraction or reduction steps; every step
+records its input values and interfaces, the indices eliminated at that step,
+the output interface, an estimated operation count, and the size of the
+resulting intermediate. This separates the mathematical contraction tree from
+the library used to discover it and leaves room for a different path optimizer
+without changing the surrounding compiler stages.
+
+Contraction-path search requires numerical dimensions in order to estimate
+cost. In the current exact-distillation model, LapH-mode indices have dimension
+\(N_v\) for the job and spin indices have dimension four. These dimensions are
+provided through a size model used for path selection,
+
+\begin{equation}
+|i|=
+\begin{cases}
+N_v, & i\in\text{LapH-mode space},\\
+4,   & i\in\text{Dirac-spin space}.
+\end{cases}
+\label{eq:execution_index_size_model}
+\end{equation}
+
+They are optimization inputs rather than part of tensor-resource identity. A
+change in \(N_v\), or in the path-search strategy, can therefore change the
+chosen contraction order without changing the symbolic correlator or its
+primitive tensor connectivity.
+
+Once a contraction tree has been selected, SymCorr rewrites its intermediate
+values into a second global DAG. Primitive tensor values are distinguished by
+both reusable resource identity and exact logical placement, while contraction
+subtrees are canonicalized from their recursively defined inputs and interfaces.
+Temporary component step names and dummy local indices are excluded from this
+identity. As a result, two algebraically identical partial contractions can
+refer to the same logical intermediate even when they arose in different
+component plans. Importantly, this pass does not alter the contraction order
+that was already selected; it only recognizes identical values inside those
+frozen trees.
+
+The final compiler representation before scheduling is the
+\texttt{LogicalExecutionDAG}. It makes every remaining operation explicit. Its
+nodes fall into four classes:
+
+\begin{equation}
+\begin{aligned}
+v_r & = \operatorname{EvalPrimitive}(r;\pi),\\
+v_m & = \operatorname{Contract}(v_{a_1},\ldots,v_{a_k}),\\
+w_\alpha & = c_\alpha\prod_j v_{\alpha j},\\
+C_i & = \sum_{\alpha\in i} w_\alpha,
+\end{aligned}
+\label{eq:logical_execution_node_classes}
+\end{equation}
+
+where \(r\) is a primitive resource, \(\pi\) is its logical operator placement,
+\(v_m\) is one reusable contraction intermediate, \(w_\alpha\) is one Wick-term
+product, and \(C_i\) is one requested correlator output. Repeated uses of the
+same value remain distinct occurrences in an operation when multiplicity is
+part of the algebra, for example when the same disconnected scalar component
+appears twice in one Wick term.
+
+The logical DAG therefore answers a precise question: \emph{what values must be
+produced, and which earlier values does each operation depend on?} Primitive
+nodes have no dependencies; contraction nodes depend on their input values;
+Wick-term nodes multiply their component results by the already fixed
+coefficient; correlator-sum nodes depend on the contributing Wick terms. The
+output map identifies the final node corresponding to every requested
+correlator. Dependency cycles, missing values, incompatible value interfaces,
+and inconsistent Wick-term or correlator output indices are rejected by the
+logical-DAG validator.
+
+A backend-neutral static analysis can subsequently derive exact logical tensor
+metadata from this DAG. Mode and spin index spaces remain explicit even when
+they happen to have the same numerical dimension, and each value receives its
+logical shape, element count, scalar type, byte estimate, producer/consumer
+relationships, fanout, and distance to an output. This analysis still describes
+one logical value at one exact placement; time batching, data residency, file
+layout, and physical memory slots are deliberately absent.
+
+No representation described in this subsection is a physical execution plan.
+In particular, a topological ordering of the logical DAG merely demonstrates
+that its dependencies are acyclic; it is not the selected runtime schedule.
+Likewise, estimated FLOPs and intermediate sizes used during contraction-path
+search do not choose a device or allocate memory. Scheduling, lifetime-aware
+buffer reuse, time-context batching, staging, and hardware feasibility are
+introduced only by the later planning stages described below. This boundary
+allows those deployment choices to change while preserving the same optimized
+mathematical execution DAG.
 
 \subsection{Reuse of repeated structures}
 
