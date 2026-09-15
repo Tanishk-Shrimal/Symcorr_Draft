@@ -1,0 +1,235 @@
+\subsection{Factorial Wick growth and the present implementation boundary}
+\label{subsec:future_wick_scaling}
+
+The present compiler treats every complete flavor-compatible Wick pairing as an
+explicit symbolic contribution before PhysicsIR and the numerical contraction
+graphs are constructed. This has the advantage of making the fermionic
+semantics particularly transparent and provides a useful reference
+implementation, but Eq.~\eqref{eq:number_wick_pairings} also exposes its main
+scaling limitation. For repeated flavors the number of pairings grows as
+\(\prod_f n_f!\). Thus a proton-like \(uud\) two-point function has two
+same-flavor pairings, a \(pn\) system with three \(u\) and three \(d\) quarks has
+\(3!3!=36\), and a \(ppn\) system contains \(5!4!=2880\) flavor-compatible
+pairings before any numerical reuse is considered. Global common-subexpression
+analysis can eliminate repeated numerical work after these terms have been
+constructed, but it does not remove the factorial symbolic expansion itself.
+
+This distinction is important for interpreting the current scope of SymCorr.
+The explicit Wick engine is exact and useful as a correctness oracle, but it
+should not be assumed to be the final representation for large multi-baryon
+systems. A future representation should preserve the same flavor conservation,
+field ordering, fermionic signs, and operator structures while avoiding the
+need to materialize every permutation independently.
+
+\subsection{Determinant compression and what it does not remove}
+\label{subsec:future_determinants}
+
+For fixed source and sink one-particle labels, the sum over identical-flavor
+permutations has an exact determinant representation. If \(a_i\) and \(b_j\)
+denote fixed sink and source labels for \(n_f\) quarks of flavor \(f\), then
+
+\begin{equation}
+\sum_{\sigma\in S_{n_f}}
+\operatorname{sgn}(\sigma)
+\prod_{i=1}^{n_f}
+S_f(a_i,b_{\sigma(i)})
+=
+\det M_f,
+\qquad
+(M_f)_{ij}=S_f(a_i,b_j).
+\label{eq:future_determinant_identity}
+\end{equation}
+
+This is the algebraic basis of determinant approaches to nuclear correlation
+functions~\cite{PhysRevD.110.114505}. The determinant compresses the
+\(n_f!\) fermionic permutations for a fixed set of scalar propagator entries.
+It does not, by itself, eliminate sums over operator coefficients, spatial
+coordinates, LapH modes, derivatives, or independent hadron momenta.
+
+This point is especially important in a distillation calculation. The
+perambulator \(\tau_f\) is an operator in LapH-mode and spin space. A baryon
+spatial kernel such as Eq.~\eqref{eq:three_quark_spatial_kernel} couples three
+LapH indices through a common spatial sum and the color tensor
+\(\epsilon_{abc}\). In general it is therefore not a product of three
+independent one-quark vectors. Consequently, taking a determinant of the
+perambulator itself is not a replacement for the complete baryon or
+multi-baryon contraction. Such a construction would compress the fermionic
+permutation structure while leaving, or potentially expanding, the dense
+LapH-mode summations that the tensor formulation is designed to evaluate
+collectively.
+
+The same observation limits simple low-rank or Slater-determinant
+factorizations of a generic baryon elemental. No such factorization is assumed
+by the current compiler, and the future optimization strategy should not rely
+on a generic three-quark LapH tensor being separable into independent one-body
+factors. Where an operator does possess an additional exact factorization, it
+can be exploited as an optimization, but it should be proved from the operator
+structure rather than inferred from the fact that the final state contains
+identical fermions.
+
+\subsection{Reconstructing the projected coordinate-space propagator}
+\label{subsec:future_reconstructed_propagator}
+
+There is, however, another exact ordering of the distillation contractions in
+which the LapH sums are removed before the determinant is formed. Combining
+the LapH eigenvectors with the perambulator gives the distillation-projected
+coordinate-space propagator
+
+\begin{equation}
+S_f^{\mathrm{sm}}(t,t_0)
+=
+V(t)\,\tau_f(t,t_0)\,V^\dagger(t_0)
+=
+\Box(t)\,M_f^{-1}(t,t_0)\,\Box(t_0).
+\label{eq:future_reconstructed_smeared_propagator}
+\end{equation}
+
+This operation does not undo distillation and does not reconstruct the full
+unsmeared all-to-all propagator. It is the exact propagator inside the retained
+projected subspace. Once the source and sink coordinate, color, and spin labels
+are fixed, its matrix elements are ordinary scalars and may therefore enter the
+determinant identity in Eq.~\eqref{eq:future_determinant_identity} directly.
+Field-local transformations lead to corresponding variants such as
+\((D V)\tau V^\dagger\), \(V\tau(DV)^\dagger\), or the analogous transported or
+profiled constructions.
+
+This representation can be attractive for compact local operators when only a
+small set of source positions or endpoint transformations is required. The
+same reconstructed propagator can then be reused by many local color--spin
+operator structures, so increasing the final correlation-matrix dimension does
+not necessarily require reconstructing the propagator again. In this regime a
+determinant formulation and a native LapH formulation are best viewed as two
+exact elimination orders of the same projected tensor network.
+
+The limitation is the coordinate-space size of the reconstructed object. If
+\(N_x\) sink sites and \(N_y\) source sites are retained, storage scales as
+\(O(N_xN_y)\) times the color--spin matrix size. A fixed or small source set can
+therefore be practical, whereas materializing all \(x,y\) pairs scales with the
+square of the spatial volume and can erase much of the compression that makes
+distillation useful. The same difficulty appears for scattering operators
+with independently momentum-projected constituents: several independent
+relative coordinates remain, and reconstructing coordinate-space propagation
+before performing those sums can create a much larger problem than first
+forming momentum-projected LapH elementals.
+
+For this reason the reconstructed-propagator route should not be treated as a
+universal replacement for native distillation. Compact local operators and
+multi-hadron scattering operators expose different favorable contraction
+orders even though both are exact descriptions of the same projected theory.
+
+\subsection{Clustered antisymmetry and flavor-flow reduction}
+\label{subsec:future_flow_compression}
+
+A second exact direction retains the LapH representation but compresses the
+fermionic permutation structure before all Wick terms are expanded. Suppose a
+composite operator can be partitioned into spatial--color connected clusters
+using the same incidence information already used to construct operator
+vertices. For flavor \(f\), let \(r_a^{(f)}\) be the number of quarks in sink
+cluster \(a\), and let \(c_b^{(f)}\) be the corresponding number of source
+antiquarks in cluster \(b\). An inter-cluster flavor flow is described by a
+non-negative integer matrix \(K^{(f)}\) satisfying
+
+\begin{equation}
+\sum_b K_{ab}^{(f)}=r_a^{(f)},
+\qquad
+\sum_a K_{ab}^{(f)}=c_b^{(f)}.
+\label{eq:future_flavor_flow_constraints}
+\end{equation}
+
+Permutations that differ only by exchanges of identical-flavor fields inside
+one source or sink cluster can then be grouped into the same exact flow class.
+In group-theoretic language, the classes are double cosets of the complete
+same-flavor permutation group by the local permutation subgroups. The local
+antisymmetrization must act on the complete field slots: exchanging two
+identical quarks exchanges their mode, spin, derivative or displacement role,
+and all other field-local information together. A permutation of LapH axes
+alone would not be the correct fermionic operation.
+
+Exploratory exact algebraic tests motivate this direction. For the usual
+nucleon flavor compositions, the explicit pairing counts \(2\), \(36\), and
+\(2880\) for one nucleon, \(pn\), and \(ppn\), respectively, can be organized
+into \(1\), \(4\), and \(77\) structural flavor-flow classes for the corresponding
+cluster decomposition. These numbers describe an exact combinatorial
+reorganization; they are not measured SymCorr performance results and the
+compressed representation is not part of the present production compiler.
+After such a reduction, the remaining flow graphs would still require ordinary
+LapH tensor contraction and global reuse analysis. In particular, highly
+exchanged three-cluster topologies can remain computationally expensive even
+after the factorial permutation count has been reduced.
+
+This suggests a useful future division of labor. Fermion algebra should remove
+permutation redundancy that is exact at the symbolic level, while the existing
+tensor optimizer should continue to decide contraction order, intermediate
+materialization, and numerical reuse for the surviving LapH graphs. Such a
+design would retain one generic compiler workflow rather than introducing
+separate algorithms selected by hadron names.
+
+\subsection{Representation choice and operator-basis reuse}
+\label{subsec:future_representation_choice}
+
+The preceding alternatives show that the nominal number of operators in a
+correlation matrix is not by itself a sufficient predictor of cost. A basis of
+many final operators can be inexpensive if those operators are linear
+combinations of a small set of repeated spatial, derivative, momentum, and spin
+primitives. Conversely, a smaller basis can be expensive if each operator
+requires genuinely different spatial geometry or endpoint transformations. A
+useful future cost model should therefore distinguish the number of final
+operators from the number of unique expensive primitives and should account for
+reuse before estimating matrix-wide cost.
+
+Table~\ref{tab:future_representation_tradeoffs} summarizes the qualitative
+tradeoffs identified above. The entries are intended as design guidance, not
+as benchmark claims.
+
+\begin{table}[t]
+\centering
+\caption{Qualitative comparison of exact contraction representations under
+consideration for future SymCorr development. ``Current'' denotes the
+explicit-Wick/native-LapH route implemented by the present compiler.}
+\label{tab:future_representation_tradeoffs}
+\begin{tabular}{p{0.23\linewidth}p{0.29\linewidth}p{0.35\linewidth}}
+\toprule
+Representation & Main strength & Principal limitation \\
+\midrule
+Explicit Wick + native LapH & Transparent reference semantics; spatial sums are compressed into reusable LapH objects & Factorial Wick-term generation for many identical flavors \\
+Reconstructed \(V\tau V^\dagger\) + determinants & Removes LapH sums before determinant evaluation; potentially strong reuse for compact local operators & Coordinate-space storage and work grow rapidly with many source positions, relative coordinates, or endpoint transformations \\
+Flow-compressed native LapH & Removes exact local permutation redundancy while retaining momentum-projected LapH geometry & Remaining flow tensor networks can still have high-rank mode-space contractions \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A long-term compiler could therefore preserve several mathematically equivalent
+representations long enough to estimate their cost and reject infeasible ones.
+The decision should depend on quantities such as \(N_v\), spatial volume,
+number of independent position sums, number of source positions, number of
+endpoint transformations, number of unique operator primitives, reuse across
+the correlation matrix, and available memory. It should not be encoded as a
+rule such as ``use determinants for nuclei'' or ``use LapH tensors for
+baryons.'' Hardware-dependent choices should remain below this representation
+boundary, in the execution-planning layers already responsible for memory and
+device feasibility.
+
+\subsection{Claims deliberately not made in the present work}
+\label{subsec:future_nonclaims}
+
+The considerations above also define several limits on what can presently be
+claimed. The current SymCorr implementation does not contain the flavor-flow
+compiler described above, does not automatically reconstruct
+\(V\tau V^\dagger\) as an alternative determinant representation, and does not
+select between several algebraically equivalent physics representations using a
+cost model. The determinant identity does not imply that a determinant of a
+perambulator alone is a complete baryon correlator, and no generic low-rank
+factorization of dense baryon LapH elementals is assumed. Likewise, the
+preliminary reduction in the number of flow classes should not be interpreted
+as an equivalent wall-clock speedup before the surviving tensor contractions
+are benchmarked in the full runtime.
+
+No approximate pruning of Wick terms is currently part of the exact compiler.
+Possible future uses of randomized polynomial identity testing, determinant
+reuse, approximate low-rank structure, or magnitude-based truncation require
+separate validation and should remain distinct from exact algebraic
+canonicalization. The immediate development priority is therefore narrower:
+retain the explicit Wick path as a reference, introduce any compressed fermion
+representation behind an independently testable compiler boundary, prove exact
+equivalence on small systems, and only then compare the competing numerical
+representations with controlled CPU/GPU benchmarks.
