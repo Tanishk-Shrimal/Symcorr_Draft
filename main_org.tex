@@ -1,9 +1,9 @@
-\documentclass[a4paper,fleqn]{cas-dc}
+\documentclass[11pt]{article}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Packages
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\usepackage[authoryear,longnamesfirst]{natbib}
+
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
 \usepackage{booktabs}
@@ -12,17 +12,12 @@
 \usepackage{hyperref}
 \usepackage{tikz}
 \usepackage{subcaption}
-\usepackage{verbatim}
-
-\def\tsc#1{\csdef{#1}{\textsc{\lowercase{#1}}\xspace}}
-\tsc{WGM}
-\tsc{QE}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Title
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\title{}
+\title{SymCorr: A Compiler Framework for Automated Construction and Efficient Evaluation of Lattice QCD Correlation Functions}
 \author{...}
 \date{}
 
@@ -30,51 +25,11 @@
 
 \begin{document}
 
-\let\WriteBookmarks\relax
-\def\floatpagepagefraction{1}
-\def\textpagefraction{.001}
-\shorttitle{Symbolic Correlation construction package}
-\shortauthors{Tanishk Shrimal, M. Padmanath}
-
-\title[mode = title]{SymCorr: A Compiler Framework for Automated Construction and Efficient Evaluation of Lattice QCD Correlation Functions}        
-\tnotemark[1,2]
-
-\author[1,1]{Tanishk Shrimal}[orcid=0000-0001-0000-0000]
-\cormark[1]
-\fnmark[1]
-\ead{tanishks@imsc.res.in}
-\ead[url]{https://www.imsc.res.in/tanishk_shrimal}
-
-\credit{Conceptualization of this study, Methodology, Software}
-
-\affiliation[1]{organization={The Institute of Mathematical Sciences Chennai},
-                addressline={IV Cross Road, CIT Campus, Taramani}, 
-                city={Chennai},
-                postcode={600113}, 
-                state={Tamil Nadu},
-                country={India}}
-
-\author[1,1]{M. Padmanath}[orcid=0000-0001-0000-0000]
-\cormark[2]
-\fnmark[1]
-\ead{padmanath@imsc.res.in}
-\ead[URL]{https://www.imsc.res.in/~padmanath/index.html#/}
-\credit{Conceptualization of this study, Methodology, Software}
-\affiliation[1]{organization={The Institute of Mathematical Sciences Chennai},
-                addressline={IV Cross Road, CIT Campus, Taramani}, 
-                city={Chennai},
-                postcode={600113}, 
-                state={Tamil Nadu},
-                country={India}}
-
-\cortext[cor1]{Principal corresponding author}
-\cortext[cor2]{Corresponding author}
-\fntext[fn1]{This is the first author footnote, but is common to second
-  author as well.}
+\maketitle
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
-% Write this near the end of the drafting process.
+
 % Write this near the end of the drafting process.
 % Final abstract should contain, in order:
 % 1. The problem addressed.
