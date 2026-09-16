@@ -18,15 +18,8 @@
 \tsc{WGM}
 \tsc{QE}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Title
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\title{}
-\author{...}
-\date{}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\beq}{\begin{equation}}
+\newcommand{\eeq}[1]{\label{eq:#1}\end{equation}}
 
 \begin{document}
 
@@ -39,11 +32,9 @@
 \title[mode = title]{SymCorr: A Compiler Framework for Automated Construction and Efficient Evaluation of Lattice QCD Correlation Functions}        
 \tnotemark[1,2]
 
-\author[1,1]{Tanishk Shrimal}[orcid=0000-0001-0000-0000]
+\author[1]{Tanishk Shrimal}[orcid=0000-0001-0000-0000]
 \cormark[1]
-\fnmark[1]
 \ead{tanishks@imsc.res.in}
-\ead[url]{https://www.imsc.res.in/tanishk_shrimal}
 
 \credit{Conceptualization of this study, Methodology, Software}
 
@@ -54,34 +45,14 @@
                 state={Tamil Nadu},
                 country={India}}
 
-\author[1,1]{M. Padmanath}[orcid=0000-0001-0000-0000]
-\cormark[2]
-\fnmark[1]
+\author[1]{M. Padmanath}[orcid=0000-0001-0000-0000]
 \ead{padmanath@imsc.res.in}
-\ead[URL]{https://www.imsc.res.in/~padmanath/index.html#/}
 \credit{Conceptualization of this study, Methodology, Software}
-\affiliation[1]{organization={The Institute of Mathematical Sciences Chennai},
-                addressline={IV Cross Road, CIT Campus, Taramani}, 
-                city={Chennai},
-                postcode={600113}, 
-                state={Tamil Nadu},
-                country={India}}
 
-\cortext[cor1]{Principal corresponding author}
-\cortext[cor2]{Corresponding author}
-\fntext[fn1]{This is the first author footnote, but is common to second
-  author as well.}
+\cortext[cor1]{Corresponding author}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{abstract}
-% Write this near the end of the drafting process.
-% Write this near the end of the drafting process.
-% Final abstract should contain, in order:
-% 1. The problem addressed.
-% 2. What SymCorr is.
-% 3. The implemented scope of the package.
-% 4. How the implementation is validated.
-% 5. The principal performance result(s), once measured.
 a
 \end{abstract}
 
@@ -92,131 +63,20 @@ a
 \label{sec:introduction}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Motivation}
+The large coupling strength of \textit{strong} interactions delimits the use of perturbative approaches in its low energy regime, where hadrons prevails as the effective degrees of freedom. Thus, hadron physics investigations in the low energy regime rely on nonperturbative approaches such as those using the lattice QCD framework. Generation of lattice QCD ensembles following Monte-Carlo simulations and evaluation of fermion matrix determinant as well as fermion matrix inverse consumes most of the computer time in any calculation and have been extensively discussed and investigated, since the inception of lattice QCD \cite{}. Physical measurements in hadron-physics investigations are based on the evaluation of Euclidean correlation functions, which were comparatively inexpensive to compute in the early years of lattice QCD. The discovery and study of numerous heavy and excited hadrons over the past several decades, however, have driven modern spectroscopy calculations toward more sophisticated methodologies, notably those employing Euclidean correlation matrices and variational analyses to determine the finite-volume spectrum and its properties. As the size and complexity of these correlation matrices increase, the associated operator construction, Wick contractions, and numerical evaluation become increasingly demanding, resulting in a substantial growth in computational cost.
 
-Lattice QCD provides a non-perturbative framework for studying the properties
-and interactions of hadrons directly from quantum chromodynamics. In hadron
-spectroscopy, the quantities of interest are commonly extracted from Euclidean
-correlation functions constructed using interpolating operators with the
-quantum numbers of the states being studied.
+Modern day hadron spectroscopy proceeds through evaluation of two point Euclidean correlation matrices 
+\beq 
+C_{ij}(t)=\left\langle\mathcal O_i(t)\,\mathcal O_j^{\dagger}(0)\right\rangle
+\eeq{2ptCfn}
+for a basis of interpolators/operators $\{O_i\}$ that carry the quantum numbers of the desired hadronic state. In this context, the complexities include a systematic construction of interpolating operators that enter the evaluation of correlation matrices, handling the allowed Wick contractions for every combination of interpolating operators, keeping track of the fermionic signs with permutations, flavor, spin, color and spatial indices faithfully, etc. The amount of bookkeeping therefore grows as one moves from meson operators to baryons, multi-hadron operators and nuclei. Additional conversions and reductions need to be made to express the correlation matrices in terms of the objects defining operator structures as well as the fermion matrix inverses. While a systematic road-map has already been laid out for such excited state hadron spectroscopic investigations, performing them manually for every new channel being studied requires substantial implementation effort and can introduce bookkeeping errors.
 
-Modern spectroscopy calculations often require a basis containing several
-interpolating operators rather than a single operator. Different operators may
-contain different spin structures, momenta, spatial constructions, or
-combinations of hadrons. Correlation matrices constructed from such operator
-bases provide the information required to resolve the finite-volume energy
-spectrum and to distinguish states with similar quantum numbers.
+There already exists tools to handle the operator construction and correlation matrix evaluation. Tools such as Multi-Hadron Interpolators (MHI)~\cite{PhysRevD.109.094516} and \texttt{OpTion}~\cite{Yan:2025op} provides a systematic construction of multi-hadron lattice operators projected to finite-volume irreps, total lab frame momentum, spin, and internal quantum numbers. The Redstar framework ~\cite{10.1145/3592979.3593409} expresses each element in correlation matrices as a sum of graphs (Wick contractions) and utilizes uses graph-contraction algorithms to reduce redundant evaluations and to organize optimized correlator evaluations in a distillation-based calculational setup \cite{Peardon:2009gh} using tensor contractions for execution on CPUs and GPUs. Another recent algorithmic work explored determinant representations of Wick contractions and methods for identifying smaller sets of determinant terms that are sufficient for evaluating nuclear correlation functions~\cite{PhysRevD.110.114505}.
 
-As the number and complexity of the interpolating operators increase,
-constructing the corresponding correlation functions becomes increasingly
-cumbersome. For every combination of source and sink operators, the allowed
-Wick contractions must be determined, fermionic signs must be treated
-consistently, and the flavor, spin, color, and spatial structures must be
-carried through to the numerical calculation. Although many of these steps are
-systematic, performing them manually for every new operator basis requires
-substantial implementation effort and can introduce bookkeeping errors.
+The emphasis of the \textsc{SymCorr} package in the present work is on treating the complete transformation from a symbolic quark-level operator description to a numerical calculation within the distillation prescription~\cite{Peardon:2009gh} as a sequence of explicit compilation stages. Once the user provides the symbolic definition of a basis of operators in terms of quark and gauge fields, operator representation, Wick contraction, automated translation to backend-independent physics objects, distillation lowering, execution planning, and numerical evaluation are organized as distinct layers of the software. This staged organization reduces manual intervention in correlator-specific algebra and implementation while maintaining a clear separation between the physical definition of an operator and the details of its numerical evaluation. It also makes the intermediate algebraic transformations explicit and amenable to inspection and validation, while allowing numerical execution strategies to evolve independently of the underlying physics description of the interpolating operators.
 
-The distillation framework~\cite{Peardon:2009gh} provides a particularly useful
-setting for spectroscopy calculations because it separates quark propagation
-from the operator-dependent structures used to construct hadrons. This makes
-it possible to construct a wide range of interpolating operators from a common
-set of quark-propagation data. Nevertheless, the transformation from the
-mathematical definition of an interpolating operator to the complete numerical
-expression for its correlation function remains a non-trivial task.
+===========================
 
-\textsc{SymCorr} is developed to automate this transformation. Interpolating
-operators are first expressed symbolically, after which the package determines
-the corresponding Wick contractions and systematically transforms the
-resulting expressions toward their numerical representation in the
-distillation framework. The aim is to reduce the amount of correlator-specific
-algebra and implementation that must be performed manually, while keeping the
-physical definition of an operator separate from the details of its numerical
-evaluation.
-
-\subsection{Challenges in lattice QCD correlator construction}
-
-For a simple interpolating operator, constructing a two-point correlation
-function can be relatively straightforward. A meson operator, for example,
-contains one quark and one antiquark field, and the corresponding Wick
-contractions involve only a small number of quark lines. The structure becomes
-more involved when the operators contain several quark fields or when many
-operators are combined into a correlation matrix.
-
-For a basis of interpolating operators \(\{\mathcal O_i\}\), one evaluates the
-matrix of correlation functions
-
-\begin{equation}
-C_{ij}(t)
-=
-\left\langle
-\mathcal O_i(t)\,\mathcal O_j^{\dagger}(0)
-\right\rangle .
-\end{equation}
-
-Each source--sink pair can contain different flavor, spin, momentum, and
-spatial structures. These structures must be retained consistently while all
-allowed contractions between quark and antiquark fields are identified. When
-several fields of the same flavor are present, there can be multiple valid
-pairings, and the relative signs associated with fermionic permutations must
-also be handled correctly.
-
-The amount of bookkeeping therefore grows as one moves from simple meson
-operators to baryons and multi-hadron operators. At the same time, realistic
-spectroscopy calculations require many source--sink combinations, so the same
-basic contraction patterns and operator-dependent structures can appear
-repeatedly across different matrix elements.
-
-After the Wick contractions have been determined, the resulting propagator
-expressions must still be translated into the objects used for numerical
-evaluation. In the distillation framework this means expressing the correlator
-in terms of perambulators and operator-dependent structures in the Laplacian
-eigenvector space. Carrying out this translation separately for each operator
-combination makes the implementation difficult to extend and increases the
-amount of repeated algebra that must be checked by hand.
-
-These difficulties motivate a systematic representation of the operators and
-their contractions. In \textsc{SymCorr}, the operator definition, Wick
-contraction, and subsequent translation to the distillation representation are
-treated as distinct stages. This allows each stage to be constructed and
-verified independently before introducing the numerical optimizations required
-for large correlation matrices.
-
-\subsection{Related software and prior approaches}
-
-Several tools address different parts of the operator-construction and
-correlator-evaluation workflow in lattice QCD. The Multi-Hadron Interpolators
-(MHI) package implements a general procedure for combining operators with
-definite momenta and projecting them into irreducible representations of the
-appropriate lattice little groups~\cite{PhysRevD.109.094516}. More recently,
-\texttt{OpTion} provides a systematic construction of multi-hadron lattice
-operators with general momentum, spin, and internal quantum numbers, with
-explicit constructions for systems containing up to four hadrons
-~\cite{Yan:2025op}. These approaches address the important problem of building
-interpolating operators with the required finite-volume symmetry properties.
-
-A separate class of work focuses on the subsequent evaluation of correlation
-functions. The Redstar analysis framework represents Wick-contraction terms as
-graphs and uses graph-contraction algorithms to reduce redundant work and to
-organize tensor contractions for execution on CPUs and GPUs
-~\cite{10.1145/3592979.3593409}. Its formulation includes tensors carrying
-both distillation and spin indices, and therefore provides an important example
-of optimized correlator evaluation in a distillation-based calculation.
-Related algorithmic work has also explored determinant representations of Wick
-contractions and methods for identifying smaller sets of determinant terms that
-are sufficient for evaluating nuclear correlation functions
-~\cite{PhysRevD.110.114505}.
-
-These developments address complementary parts of a broad computational
-problem. The emphasis of \textsc{SymCorr} in the present work is on treating
-the complete transformation from a symbolic quark-level operator description
-to a numerical distillation calculation as a sequence of explicit compilation
-stages. Operator representation, Wick contraction, translation to
-backend-independent physics objects, distillation lowering, execution planning,
-and numerical evaluation are kept as separate layers of the software. This
-staged organization is intended to make the algebraic transformations easier to
-inspect and validate while allowing numerical execution strategies to evolve
-without changing the original physics description of the interpolating
-operators.
 
 \subsection{Scope and contributions of SymCorr}
 
