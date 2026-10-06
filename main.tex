@@ -138,9 +138,9 @@ The \textsc{SymCorr} package is designed to separate the physical definition and
 \label{fig:symcorr_workflow}
 \end{figure*}
 
-We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. In the first stage, the user is expected to provide interpolator basis, for which the correlation matrices would be build, in the symbolic form, which will be discussed in the next section. In the second stage, all the quark line pairings also referred to as Wick contractions, the associated fermionic permutation signs, and contraction coefficients are generated for each of the correlation matrix elements. The Wick contracted mathematical expressions are reduced to the distillation framework and then translated into a physics independent backend tensor network problem in the third stage. Once the tensor network problem is defined, the redundant contrations, reusable resources, similarity in matrix elements, etc. are identified and utilized in optimization program treating the correlation matrix evaluation as a global contration program. Following the algebraic as well as numerical optimizations, the required lattice data such as the lattice configuration $\{U_{\mu}(\mathbf{x},t)\}$, the Laplacian eigenvectors $\{v^{(i)}(t)\}$, and the perambulators $\tau_f(t,t_0)$ are read in and utilized in building the necessary primitive tensors. Deployment decisions such as a feasible CPU or single-GPU execution mode and memory-compatible batching are made based on the accessible/provided resources. The optimized tensor contraction operations are then performed to produce the requested complex correlation matrices. 
+We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. In the first stage, the user is expected to provide interpolator basis, for which the correlation matrices would be build, in the symbolic form, which will be discussed in the next section. In the second stage, all the quark line pairings also referred to as Wick contractions, the associated fermionic permutation signs, and contraction coefficients are generated for each of the correlation matrix elements. The Wick contracted mathematical expressions are reduced to the distillation framework and then translated into a physics independent backend tensor network problem in the third stage. Once the tensor network problem is defined, the redundant contrations, reusable resources, similarity in matrix elements, etc. are identified and utilized in optimization program treating the correlation matrix evaluation as a global contration program. Following the algebraic as well as numerical optimizations, the required lattice data such as the lattice configuration $\{U_{\mu}(\mathbf{x},t)\}$, the Laplacian eigenvectors $\{v^{(i)}(t)\}$, and the perambulators $\tau_f(t,t_0)$ are read in and utilized in building the necessary primitive tensors. Deployment decisions such as a feasible CPU or GPU execution mode and memory-compatible batching are made based on the accessible/provided resources. The optimized tensor contraction operations are then performed to produce the requested complex correlation matrices. 
 
-Now we present the scope of the \textsc{SymCorr} package. The present implementation can serve in optimized distillation-based correlation matrix evaluations and works on both CPU as well as GPU resources. The package assumes externally supplied operator basis, lattice QCD configuration, associated Laplacian eigenvectors, and the quark perambulators. Operator constructions such as those dealt by packages (MHI) and \texttt{OpTion} supplied n Ref. \cite{PhysRevD.109.094516,Yan:2025op}, generation of the lattice QCD configurations \cite{openQCD, MILC} and evaluation of Laplacian eigenvectors, and perambulators \cite{quada_laph} are outside \textsc{SymCorr}'s scope. The package can inspect the available resources such as CPUs, GPUs, memory, and can make educated decisions on efficient execution, however does not support multi-GPU and MPI based multi-CPU evaluations. These are limited execution boundaries rather than restrictions on the symbolic definition of the correlator.
+Now we present the scope of the \textsc{SymCorr} package. The present implementation can serve in optimized distillation-based correlation matrix evaluations and works on both CPU as well as GPU resources. The package assumes externally supplied operator basis, lattice QCD configuration, associated Laplacian eigenvectors, and the quark perambulators. Operator constructions such as those dealt by packages (MHI) and \texttt{OpTion} supplied n Ref. \cite{PhysRevD.109.094516,Yan:2025op}, generation of the lattice QCD configurations \cite{openQCD, MILC} and evaluation of Laplacian eigenvectors, and perambulators \cite{quada_laph} are outside \textsc{SymCorr}'s scope. The package can inspect the available resources such as CPUs, GPUs, memory, and can make educated decisions on efficient execution, however it does not support multi-GPU and MPI based multi-CPU evaluations, which is a straightforward extension. These are limited execution boundaries rather than restrictions on the symbolic definition of the correlator.
 
 At the physics level, the \textsc{SymCorr} package has been validated for a variety of local as well as bilocal hadron operators, and their full distillation two point correlation matrix evaluations. The results has been cross-verified with independent Chroma based evaluations for rest as well as (multiple) moving frames, for single mesons, single baryons as well as bilocal two-hadron interpolators.  Correlation matrices with local four-quark operator and relavant bilocal two meson operators in the $T_{1g}$ have also been tested and cross-verified with an independent realization in the Croma software suite. Beyond this explicitly verified cases, the package has additional capabilities, that includes, but not limited to, multi-hadron correlation matrix evaluations, derivative-based single hadron correlator evaluations, correlation matrices involving disconnected quark loops, three point correlation matrices provided the generalized perambulators \cite{}. 
 
@@ -148,36 +148,24 @@ At the physics level, the \textsc{SymCorr} package has been validated for a vari
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Symbolic Representation of Interpolating Operators}
 \label{sec:symbolic}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Elementary symbolic objects}
+The \textsc{SymCorr} package takes in the interpolator basis as a list of ordered algebraic expressions built out of objects representing (anti)quark fields, gauge fields, spin and color structures. At this stage of interpolator definition, the representation is independent of distillation tensors, data layouts, contraction paths, and execution backends. This strategy helps in retaining the physical structure at all stages of the execution. 
 
-The symbolic frontend represents an interpolating operator as an ordered
-algebraic expression assembled from objects that correspond directly to the
-field-theory ingredients of the operator. At this level the representation is
-independent of distillation tensors, external data layouts, contraction paths,
-and execution backends. The purpose of the frontend is to retain enough
-physical structure that subsequent compiler stages can determine these details
-systematically.
-
-The elementary fermionic objects are indexed quark and antiquark fields. A
-field of flavor \(f\) is represented schematically as
-
+Quark and antiquark fields of flavor $f$ are represented schematically as
 \begin{equation}
 q_f(x)_{a\alpha},
 \qquad
 \bar q_f(x)_{a\alpha},
 \label{eq:symbolic_quark_field}
 \end{equation}
+where $x$, $a$, and $\alpha$ denote position, color, and Dirac spin indices, respectively. The flavor and the distinction between a quark and an antiquark are set as the properties of the fermion field objects to facilitate easy identification of flavor compatibility and fermion permutation signs at the stage of Wick contractions. 
 
-where \(x\), \(a\), and \(\alpha\) denote position, color, and spin indices,
-respectively. The flavor and the distinction between a quark and an antiquark
-are properties of the field itself rather than annotations added during Wick
-contraction. This allows flavor compatibility and fermion ordering to be
-established directly from the symbolic expression.
+The operator representations are independent of the  Dirac gamma matrix conventions
 
-Spin structure is represented by indexed matrices
-\(\Gamma_{\alpha\beta}\). The frontend provides the usual gamma matrices and
+
+Spin structure is represented by indexed matrices $\Gamma_{\alpha\beta}$, whose numerical convention is only assumed only at the backend.
+
+The frontend provides the usual gamma matrices and
 also permits named spin matrices used by the supported operator constructions,
 including charge-conjugation structures. At the symbolic level the important
 information is the matrix identity together with its two spin indices; the
@@ -462,7 +450,110 @@ baryon = build_baryon_operator(
 
 corr = CorrMatrix([baryon])[0, 0]
 \end{verbatim}
+\begin{verbatim}
+proton = Operator(
+    epsilon("a", "b", "c")
+    * cgamma5("alpha", "beta")
+    * u("x", "a", "alpha")
+    * d("x", "b", "beta")
+    * u("x", "c", "delta"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
 
+\begin{verbatim}
+    tetraquark = Operator(
+    epsilon("a", "b", "e")
+    * epsilon("c", "d", "e")
+    * u("x", "a", "alpha")
+    * cgamma5("alpha", "beta")
+    * d("x", "b", "beta")
+    * ubar("x", "c", "gamma")
+    * cgamma5("gamma", "delta")
+    * dbar("x", "d", "delta"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+
+\begin{verbatim}
+    pion_dx = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * derivative(
+        u("x", "a", "beta"),
+        "+x",
+    ),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\begin{verbatim}
+    pion_tx = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * transport(
+        u("x", "a", "beta"),
+        "+x",
+    ),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\begin{verbatim}
+    pion_txy = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * transport(
+        u("x", "a", "beta"),
+        "+x",
+        "+y",
+    ),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\begin{verbatim}
+    two_meson_local = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * u("x", "a", "beta")
+
+    * ubar("x", "b", "gamma")
+    * gamma5("gamma", "delta")
+    * d("x", "b", "delta"),
+
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\begin{verbatim}
+    meson1 = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * u("x", "a", "beta"),
+    momentum=(1, 0, 0),
+)
+
+meson2 = Operator(
+    ubar("y", "b", "gamma")
+    * gamma5("gamma", "delta")
+    * d("y", "b", "delta"),
+    momentum=(-1, 0, 0),
+)
+two_meson_bilocal = meson1 * meson2
+\end{verbatim}
+\begin{verbatim}
+    two_meson_bilocal = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * u("x", "a", "beta")
+
+    * ubar("y", "b", "gamma")
+    * gamma5("gamma", "delta")
+    * d("y", "b", "delta"),
+
+    momenta={
+        "x": (1, 0, 0),
+        "y": (-1, 0, 0),
+    },
+)
+\end{verbatim}
 The helper inserts the antisymmetric color tensor and the selected diquark spin
 matrix but returns the same ordinary symbolic \texttt{Operator} used by the
 rest of the frontend. In the one-element correlation matrix shown above, no
