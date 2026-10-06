@@ -1332,9 +1332,231 @@ allows those deployment choices to change while preserving the same optimized
 mathematical execution DAG.
 
 \subsection{Reuse of repeated structures}
+\label{sec:reuse_repeated_structures}
 
-% Discuss coefficient aggregation, zero pruning, equivalent/reusable kernels,
-% contraction reuse, and related optimizations only where implemented.
+A central capability of the \textsc{SymCorr} framework is the identification and elimination of redundant computational work across an entire correlation matrix. Rather than treating each matrix element \(C_{ij}(t-t_0)\) and each contributing Wick term as an independent contraction program, \textsc{SymCorr} formulates the global calculation as a unified computation directed acyclic graph (\texttt{GlobalComputationDAG}). This subsection explains how Wick-contracted terms are represented as attributed graphs, the multi-tier identifier hierarchy used throughout the compiler, the graph-isomorphism algorithm that discovers topologically equivalent contractions, and how this optimization operates in practical hadron correlation matrices.
+
+\subsubsection{Graph representation of hadron contractions: The proton example}
+\label{sec:graph_rep_proton}
+
+To illustrate the graph formulation concretely, consider the rest-frame, positive-parity nucleon (proton) interpolating operator,
+\begin{equation}
+\mathcal O_N(t) = \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t),
+\label{eq:proton_interpolator_def}
+\end{equation}
+where \(C = \gamma_2\gamma_4\) is the charge-conjugation matrix, \(\epsilon_{abc}\) is the totally antisymmetric \(SU(3)\) color tensor, and \(P_+ = \frac{1}{2}(\mathbb I + \gamma_4)\) is the positive-parity energy projector. The corresponding Euclidean two-point correlation function is
+\begin{equation}
+C_{NN}(t, t_0) = \left\langle \mathcal O_N(t) \, \overline{\mathcal O}_N(t_0) \right\rangle,
+\label{eq:proton_correlator_def}
+\end{equation}
+where \(\overline{\mathcal O}_N(t_0) = \mathcal O_N(t_0)^\dagger \gamma_4\) denotes the adjoint source operator.
+
+Because the proton contains two valence up quarks of identical flavor, Wick's theorem generates two distinct contraction terms (\(N_u! \times N_d! = 2! \times 1! = 2\)):
+\begin{enumerate}
+    \item \textbf{Direct term (\(\alpha=0\))}: with fermionic permutation sign \(c_0 = -1\), where up quark~1 at the source propagates into up quark~1 inside the sink diquark, while up quark~2 propagates as the spectator quark.
+    \item \textbf{Exchange term (\(\alpha=1\))}: with fermionic permutation sign \(c_1 = +1\), where the two up-quark lines cross: up quark~1 at the source propagates into the sink spectator, while up quark~2 propagates into the sink diquark.
+\end{enumerate}
+
+\begin{figure*}[t]
+\centering
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.95, every node/.style={transform shape}]
+  % Sink block
+  \node[draw, fill=blue!10, rounded corners, minimum width=4.8cm, minimum height=0.7cm, font=\small\bfseries] (sink) at (0, 3.8) {Sink Baryon Kernel $B(t)$};
+  \node[font=\footnotesize] at (-1.6, 3.4) {$\text{port}_0$};
+  \node[font=\footnotesize] at (0.0, 3.4) {$\text{port}_1$};
+  \node[font=\footnotesize] at (1.6, 3.4) {$\text{port}_2$};
+
+  % Source block
+  \node[draw, fill=blue!10, rounded corners, minimum width=4.8cm, minimum height=0.7cm, font=\small\bfseries] (src) at (0, -0.6) {Source Baryon Kernel $B^\dagger(t_0)$};
+  \node[font=\footnotesize] at (-1.6, -0.2) {$\text{port}_0$};
+  \node[font=\footnotesize] at (0.0, -0.2) {$\text{port}_1$};
+  \node[font=\footnotesize] at (1.6, -0.2) {$\text{port}_2$};
+
+  % Spin matrices
+  \node[draw, fill=orange!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (g_sink) at (-0.8, 2.7) {$C\gamma_5$};
+  \node[draw, fill=orange!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (g_src)  at (-0.8, 0.5) {$C\gamma_5$};
+  \node[draw, fill=green!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (p_proj) at (1.6, 1.6) {$P_+$};
+
+  % Propagators
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_u1) at (-1.6, 1.6) {$\tau_u^{(1)}$};
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_d)  at (0.0, 1.6) {$\tau_d$};
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_u2) at (1.6, 2.4) {$\tau_u^{(2)}$};
+
+  % Edges (Direct term)
+  \draw[->, thick] (-1.6, -0.2) -- (-1.6, 1.3);
+  \draw[->, thick] (-1.6, 1.9) -- (-1.6, 3.4);
+  \draw[->, thick] (0.0, -0.2) -- (0.0, 1.3);
+  \draw[->, thick] (0.0, 1.9) -- (0.0, 3.4);
+  \draw[->, thick] (1.6, -0.2) -- (p_proj.south);
+  \draw[->, thick] (p_proj.north) -- (tau_u2.south);
+  \draw[->, thick] (tau_u2.north) -- (1.6, 3.4);
+
+  % Spin links
+  \draw[dashed, red!80!black, thick] (tau_u1.east) -- (g_sink.west);
+  \draw[dashed, red!80!black, thick] (tau_d.west) -- (g_sink.east);
+  \draw[dashed, red!80!black, thick] (tau_u1.south) to[bend right=25] (g_src.west);
+  \draw[dashed, red!80!black, thick] (tau_d.south) to[bend left=25] (g_src.east);
+
+\end{tikzpicture}
+\caption{Direct contraction graph (\(\alpha=0\), sign \(-1\))}
+\label{fig:proton_graph_direct}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.48\textwidth}
+\centering
+\begin{tikzpicture}[scale=0.95, every node/.style={transform shape}]
+  % Sink block
+  \node[draw, fill=blue!10, rounded corners, minimum width=4.8cm, minimum height=0.7cm, font=\small\bfseries] (sink) at (0, 3.8) {Sink Baryon Kernel $B(t)$};
+  \node[font=\footnotesize] at (-1.6, 3.4) {$\text{port}_0$};
+  \node[font=\footnotesize] at (0.0, 3.4) {$\text{port}_1$};
+  \node[font=\footnotesize] at (1.6, 3.4) {$\text{port}_2$};
+
+  % Source block
+  \node[draw, fill=blue!10, rounded corners, minimum width=4.8cm, minimum height=0.7cm, font=\small\bfseries] (src) at (0, -0.6) {Source Baryon Kernel $B^\dagger(t_0)$};
+  \node[font=\footnotesize] at (-1.6, -0.2) {$\text{port}_0$};
+  \node[font=\footnotesize] at (0.0, -0.2) {$\text{port}_1$};
+  \node[font=\footnotesize] at (1.6, -0.2) {$\text{port}_2$};
+
+  % Spin matrices
+  \node[draw, fill=orange!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (g_sink) at (-0.8, 2.7) {$C\gamma_5$};
+  \node[draw, fill=orange!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (g_src)  at (0.8, 0.5) {$C\gamma_5$};
+  \node[draw, fill=green!15, shape=rectangle, minimum width=0.8cm, minimum height=0.5cm, font=\scriptsize] (p_proj) at (1.6, 1.6) {$P_+$};
+
+  % Propagators
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_u1) at (-1.6, 2.4) {$\tau_u^{(1)}$};
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_d)  at (0.0, 1.6) {$\tau_d$};
+  \node[draw, fill=gray!15, rounded corners, minimum width=1.1cm, minimum height=0.6cm, font=\scriptsize] (tau_u2) at (0.9, 1.6) {$\tau_u^{(2)}$};
+
+  % Edges (Exchange term: crossed up-quark lines)
+  \draw[->, thick] (1.6, -0.2) -- (p_proj.south);
+  \draw[->, thick] (p_proj.north) to[out=110, in=250] (-1.6, 2.1);
+  \draw[->, thick] (-1.6, 2.7) -- (-1.6, 3.4);
+  \draw[->, thick] (0.0, -0.2) -- (0.0, 1.3);
+  \draw[->, thick] (0.0, 1.9) -- (0.0, 3.4);
+  \draw[->, thick] (-1.6, -0.2) to[out=50, in=270] (0.9, 1.3);
+  \draw[->, thick] (0.9, 1.9) to[out=90, in=270] (1.6, 3.4);
+
+  % Spin links
+  \draw[dashed, red!80!black, thick] (tau_u1.east) -- (g_sink.west);
+  \draw[dashed, red!80!black, thick] (tau_d.west) -- (g_sink.east);
+  \draw[dashed, red!80!black, thick] (tau_u2.south) -- (g_src.north);
+  \draw[dashed, red!80!black, thick] (tau_d.south) to[bend left=25] (g_src.west);
+
+\end{tikzpicture}
+\caption{Exchange contraction graph (\(\alpha=1\), sign \(+1\))}
+\label{fig:proton_graph_exchange}
+\end{subfigure}
+\caption{Graph representations of the two proton Wick contraction topologies, in the style of hadron contraction networks~\cite{10.1145/3592979.3593409}. Solid lines denote distillation LapH-mode propagations connecting the sink kernel \(B(t)\) and source kernel \(B^\dagger(t_0)\). Dashed red lines denote Dirac spinor indices contracted with diquark matrices \(C\gamma_5\) and parity projectors \(P_+\).}
+\label{fig:proton_graphs_comparison}
+\end{figure*}
+
+In \textsc{SymCorr}, each Wick term is converted into an explicit tensor network graph (\texttt{WickContractionGraph}), displayed schematically in Fig.~\ref{fig:proton_graphs_comparison}.
+\begin{itemize}
+    \item \textbf{Nodes}: Each graph contains 12 primitive tensor nodes:
+    \begin{itemize}
+        \item Two spatial baryon kernels (\texttt{kernel\_0} at the sink and \texttt{kernel\_1} at the source), each carrying three external LapH-mode ports: \(\text{mode}_0, \text{mode}_1, \text{mode}_2\).
+        \item Three quark perambulators (\(\tau_u^{(1)}, \tau_d, \tau_u^{(2)}\)), each carrying four ports: \(\text{sink\_mode}, \text{sink\_spin}, \text{source\_mode}, \text{source\_spin}\).
+        \item Seven Dirac spin tensors representing the source/sink \(C\gamma_5\), \(P_+\), and conjugation structures.
+    \end{itemize}
+    \item \textbf{Edges}: Edges correspond to contracted dummy indices (degree~2). A mode edge connects a perambulator mode port to a baryon kernel mode port. A spin edge connects a perambulator spin port to a Dirac matrix.
+\end{itemize}
+
+\subsubsection{Identifier taxonomy in the compiler}
+\label{sec:identifier_taxonomy}
+
+To manage data reuse, compilation, and execution without name clashes or ambiguous sharing, \textsc{SymCorr} maintains four strictly decoupled tiers of identifiers:
+\begin{enumerate}
+    \item \textbf{\texttt{correlator\_id}}: Identifies the high-level physical correlator requested by the user in the job declaration (e.g., \texttt{c\_proton} or \texttt{C\_0\_1}).
+    \item \textbf{\texttt{node\_id}}: A diagram-local occurrence identifier assigned to a specific tensor node within one un-optimized Wick graph (e.g., \texttt{kernel\_0}, \texttt{propagation\_1}, \texttt{spin_3}).
+    \item \textbf{\texttt{resource\_id}}: A globally unique identifier for the underlying physical/numerical data source. It is generated from a deterministic SHA-256 hash of the mathematical specification (e.g., \texttt{spatial\_kernel\_6427fc177ebd6ff5} for the proton baryon block, or \texttt{perambulator\_cfa5757fa5e8304a5b81} for the up-quark perambulator). Importantly, Graph~0 and Graph~1 have distinct node occurrences, but share the exact same \texttt{resource\_id} values.
+    \item \textbf{\texttt{computation\_id}} (or \textbf{\texttt{component\_id}}): Identifies a unique, canonicalized, connected tensor contraction network (e.g., \texttt{component\_301a5cf4dae549910cb6} for Graph~0 and \texttt{component\_9b66414a31baeffffe8b} for Graph~1). This identifier is invariant under dummy index renaming and node reordering.
+\end{enumerate}
+
+\subsubsection{Strategy for graph isomorphism: Canonicalization via lexicographical minimization}
+\label{sec:isomorphism_strategy}
+
+Two contraction graphs may represent the identical physical tensor network, yet appear completely distinct to an automated compiler due to:
+\begin{itemize}
+    \item Arbitrary dummy index labels generated during parsing (e.g., \texttt{spin:c0:op0:$\alpha$} versus \texttt{spin:c1:op0:$\mu$}).
+    \item Arbitrary permutation of the node list in memory.
+    \item Symmetries of internal contracted loops.
+\end{itemize}
+
+Generic graph isomorphism libraries such as the Boost Graph Library (BGL)~\cite{10.1145/3592979.3593409} or \texttt{nauty} are designed for large abstract graphs ($10^4$--$10^6$ vertices) and require edge-colored encodings to preserve tensor port identities. For lattice QCD contraction graphs, where connected components contain only $5$--$25$ nodes, \textsc{SymCorr} employs an exact, lightweight canonical labeling algorithm based on lexicographical string minimization:
+
+\begin{algorithm}[H]
+\caption{Canonical Graph Isomorphism in \textsc{SymCorr}}
+\label{alg:canonical_graph_isomorphism}
+\begin{algorithmic}[1]
+\Require Connected node members \(\mathcal M\), primitive nodes \(\mathcal V\), port-index bindings \(\mathcal B\).
+\Ensure Canonical \texttt{ComponentComputation} with deterministic \texttt{computation\_id}.
+\State Initialize candidate descriptions \(\mathcal C \gets [\,]\).
+\For{each candidate root node \(r \in \mathcal M\)}
+    \State Traverse the connected component via Depth-First Search (DFS) starting at \(r\), following internal port-to-port connections in deterministic port order.
+    \State Record node visit order \(\sigma_r = [v_1, v_2, \ldots, v_{|\mathcal M|}]\).
+    \State Construct node descriptors encoding node kind, \texttt{resource\_id}, temporal operator slot, and relative edge target steps \(\sigma_r(u)\).
+    \State Serialize into sorted JSON string \(S_r \gets \operatorname{JSON}(\sigma_r, \operatorname{sort\_keys}=\text{True})\).
+    \State Append \((S_r, \sigma_r)\) to \(\mathcal C\).
+\EndFor
+\State Select the lexicographically minimal candidate:
+\[ (S_{\mathrm{min}}, \sigma_{\mathrm{min}}) \gets \operatorname{argmin}_{(S, \sigma) \in \mathcal C} (S) \]
+\State Remap internal edges to canonical indices \(\{i_0, i_1, i_2, \ldots\}\) and external open edges to \(\{o_0, o_1, \ldots\}\) according to \(\sigma_{\mathrm{min}}\).
+\State Compute \(\texttt{computation\_id} \gets \operatorname{SHA-256}(S_{\mathrm{min}})[:20]\).
+\State \Return Canonical component with slots \(\{t_0, t_1, \ldots\}\) and canonical bindings.
+\end{algorithmic}
+\end{algorithm}
+
+Because this algorithm exhaustively tests all starting roots and takes the lexicographical minimum, the resulting string \(S_{\mathrm{min}}\) and its hash \texttt{computation\_id} form a strict canonical certificate: \emph{two tensor graphs are topologically isomorphic if and only if their canonical identifiers agree.}
+
+\subsubsection{Operator choices and explicit cross-correlator isomorphism}
+\label{sec:cross_correlator_isomorphism}
+
+Where does graph isomorphism provide practical computational reuse in realistic lattice QCD spectroscopy? Consider a $2 \times 2$ correlation matrix of spin-$1/2^+$ rest-frame nucleon interpolators constructed from two distinct diquark structures:
+\begin{align}
+\mathcal O_1(t) &= \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t) \quad (\text{pseudoscalar diquark}), \label{eq:op1_nucleon}\\
+\mathcal O_2(t) &= \epsilon_{abc} \left[ u^a(t)^\top C\gamma_4\gamma_5 d^b(t) \right] P_+ u^c(t) \quad (\text{axial-vector/temporal diquark}). \label{eq:op2_nucleon}
+\end{align}
+The four matrix elements evaluated across the matrix are:
+\begin{equation}
+\mathbf C(t, t_0) = 
+\begin{pmatrix}
+C_{11}(t, t_0) & C_{12}(t, t_0) \\
+C_{21}(t, t_0) & C_{22}(t, t_0)
+\end{pmatrix}
+=
+\begin{pmatrix}
+\langle \mathcal O_1(t) \overline{\mathcal O}_1(t_0) \rangle & \langle \mathcal O_1(t) \overline{\mathcal O}_2(t_0) \rangle \\
+\langle \mathcal O_2(t) \overline{\mathcal O}_1(t_0) \rangle & \langle \mathcal O_2(t) \overline{\mathcal O}_2(t_0) \rangle
+\end{pmatrix}.
+\label{eq:nucleon_2x2_matrix}
+\end{equation}
+
+Each of the four correlators contains two Wick terms, yielding a total of 8 raw contraction graphs across the matrix. When \textsc{SymCorr}'s global compiler pass (\texttt{build\_global\_cse}) analyzes this system, it uncovers multiple levels of exact algebraic reuse:
+
+\begin{enumerate}
+    \item \textbf{Cross-Correlator Graph Isomorphism between Off-Diagonal Elements}:
+    Under Euclidean time-reversal and Hermiticity, the off-diagonal elements are related by:
+    \begin{equation}
+    C_{21}(t, t_0) = \gamma_4 \, C_{12}(t, t_0)^\dagger \, \gamma_4.
+    \end{equation}
+    At the level of primitive contraction graphs, the direct term of \(C_{12}\) (connecting \(\mathcal O_1\) at the sink to \(\overline{\mathcal O}_2\) at the source) and the direct term of \(C_{21}\) (connecting \(\mathcal O_2\) at the sink to \(\overline{\mathcal O}_1\) at the source) possess the identical spatial-color connectivity and conjugate spin-matrix pairings. Algorithm~\ref{alg:canonical_graph_isomorphism} maps both graphs to the exact same canonical string \(S_{\mathrm{min}}\) and assigns them the identical \texttt{computation\_id}. Consequently, the tensor contraction is scheduled and evaluated \emph{only once}; the second correlator merely reads the result from the shared resident memory buffer.
+    
+    \item \textbf{Global Resource Deduplication Across the Full Basis}:
+    Even when the contraction topologies differ between diagonal and off-diagonal elements (because \(\mathcal O_1\) contains \(\gamma_5\) while \(\mathcal O_2\) contains \(\gamma_4\gamma_5\)), all 8 Wick graphs share the exact same underlying spatial and propagation data:
+    \begin{itemize}
+        \item The spatial baryon kernels \(B(t)\) and \(B^\dagger(t_0)\) share the identical \texttt{resource\_id}: \texttt{spatial\_kernel\_6427fc177ebd6ff5}.
+        \item The up and down perambulators share the identical \texttt{resource\_id}s: \texttt{perambulator\_cfa5757fa5e8304a5b81} and \texttt{perambulator\_b3fea9be5fe28d95c30f}.
+    \end{itemize}
+    Across the 8 Wick graphs of the $2 \times 2$ nucleon matrix, there are 96 raw tensor occurrences. \textsc{SymCorr}'s global CSE consolidates them into only 8 unique in-memory tensor resources, eliminating 88 redundant data loadings (a \textbf{91.7\% reduction} in tensor staging overhead).
+    
+    \item \textbf{Exact Algebraic Cancellation (Zero Pruning)}:
+    Within a single correlator sum, if two contributing terms possess identical canonical components but opposite coefficients (\(c_\alpha + c_\beta = 0\)), \textsc{SymCorr} sums the coefficients symbolically and prunes the entire term from the execution DAG, ensuring that zero FLOPs and zero buffer memory are expended on vanishing contributions.
+\end{enumerate}
+
+By combining fine-grained tensor network canonicalization with global DAG scheduling, \textsc{SymCorr} achieves the same graph-reduction benefits as specialized C++ packages such as Redstar, while maintaining a transparent, Python-driven compiler architecture with zero external graph-library dependencies.
+
 
 \subsection{Memory and time-slice planning}
 
