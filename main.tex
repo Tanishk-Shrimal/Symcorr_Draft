@@ -1620,41 +1620,53 @@ To manage data reuse, compilation, and execution without name clashes or ambiguo
     \item \textbf{\texttt{computation\_id}} (or \textbf{\texttt{component\_id}}): Identifies a unique, canonicalized, connected tensor contraction network (e.g., \texttt{component\_}\allowbreak\texttt{301a5cf4\dots} for Graph~0 and \texttt{component\_}\allowbreak\texttt{9b66414a\dots} for Graph~1). This identifier is invariant under dummy index renaming and node reordering.
 \end{enumerate}
 
-\subsubsection{Strategy for graph isomorphism: Canonicalization via lexicographical minimization}
+\subsubsection{Graph isomorphism: Identifying identical contractions through canonical labeling}
 \label{sec:isomorphism_strategy}
 
-Two contraction graphs may represent the identical physical tensor network, yet appear completely distinct to an automated compiler due to:
-\begin{itemize}
-    \item Arbitrary dummy index labels generated during parsing (e.g., \texttt{spin:c0:op0:$\alpha$} versus \texttt{spin:c1:op0:$\mu$}).
-    \item Arbitrary permutation of the node list in memory.
-    \item Symmetries of internal contracted loops.
-\end{itemize}
+Two contraction graphs may represent the exact same mathematical contraction, yet appear entirely distinct to a computer. This occurs for two simple reasons:
+\begin{enumerate}
+    \item \textbf{Dummy index naming}: Consider two mathematically identical contractions,
+    \begin{equation*}
+    \sum_\alpha \tau_{\alpha\beta} \, (C\gamma_5)_{\beta\alpha} \quad \Longleftrightarrow \quad \sum_\mu (C\gamma_5)_{\nu\mu} \, \tau_{\mu\nu}.
+    \end{equation*}
+    Although they compute the same tensor value, an automated parser sees different dummy labels (\(\alpha,\beta\) versus \(\mu,\nu\)).
+    \item \textbf{Arbitrary node order}: Tensors in memory can appear in any sequence (listing \(\tau\) before \(C\gamma_5\) or vice versa) without altering the physical contraction result.
+\end{enumerate}
 
-Generic graph isomorphism libraries such as the Boost Graph Library (BGL)~\cite{10.1145/3592979.3593409} or \texttt{nauty} are designed for large abstract graphs ($10^4$--$10^6$ vertices) and require edge-colored encodings to preserve tensor port identities. For lattice QCD contraction graphs, where connected components contain only $5$--$25$ nodes, \textsc{SymCorr} employs an exact, lightweight canonical labeling algorithm based on lexicographical string minimization:
+To recognize identical contractions across different correlators, \textsc{SymCorr} converts every contraction graph into a unique, standardized form---a process known as \emph{canonical labeling}.
+
+While generic graph isomorphism packages (such as the Boost Graph Library (BGL)~\cite{10.1145/3592979.3593409} or \texttt{nauty}) are tailored for massive abstract graphs with thousands of vertices, lattice QCD contraction graphs are compact, typically containing only $5$--$25$ tensor nodes. \textsc{SymCorr} therefore uses a lightweight, self-contained canonicalization strategy based on three intuitive steps:
+\begin{itemize}
+    \item \textbf{Step 1: Graph traversal and index standardization}: Starting from a chosen tensor, the compiler walks through the graph by following port connections in a fixed numerical port order (port~0, port~1, \ldots). As internal connections and open indices are encountered along the walk, they are renamed systematically to sequential canonical labels (\(i_0, i_1, i_2, \ldots\) for contracted internal indices and \(o_0, o_1, \ldots\) for open external indices).
+    \item \textbf{Step 2: Unbiased root selection}: Because a loop of contracted tensors has no natural ``first'' node, \textsc{SymCorr} tries starting the walk from every candidate tensor in the graph. Each choice of starting node produces a standardized candidate string describing the walk.
+    \item \textbf{Step 3: Deterministic tie-breaking (Lexicographical minimum)}: Among all candidate description strings generated across all possible starting nodes, the compiler deterministically selects the one that is alphabetically earliest (the lexicographical minimum).
+\end{itemize}
 
 \begin{algorithm}[H]
 \caption{Canonical Graph Isomorphism in \textsc{SymCorr}}
 \label{alg:canonical_graph_isomorphism}
 \begin{algorithmic}[1]
-\Require Connected node members \(\mathcal M\), primitive nodes \(\mathcal V\), port-index bindings \(\mathcal B\).
-\Ensure Canonical \texttt{ComponentComputation} with deterministic \texttt{computation\_id}.
-\State Initialize candidate descriptions \(\mathcal C \gets [\,]\).
-\For{each candidate root node \(r \in \mathcal M\)}
-    \State Traverse the connected component via Depth-First Search (DFS) starting at \(r\), following internal port-to-port connections in deterministic port order.
-    \State Record node visit order \(\sigma_r = [v_1, v_2, \ldots, v_{|\mathcal M|}]\).
-    \State Construct node descriptors encoding node kind, \texttt{resource\_id}, temporal operator slot, and relative edge target steps \(\sigma_r(u)\).
-    \State Serialize into sorted JSON string \(S_r \gets \operatorname{JSON}(\sigma_r, \operatorname{sort\_keys}=\text{True})\).
-    \State Append \((S_r, \sigma_r)\) to \(\mathcal C\).
+\Require Contraction graph \(G\) with tensor nodes, port definitions, and index connections.
+\Ensure Canonical identifier \texttt{computation\_id} and standardized contraction plan.
+\State \textbf{Initialize} candidate list \(\mathcal C \gets [\,]\).
+\For{each candidate starting tensor \(r\) in \(G\)}
+    \State Walk through connected tensors starting from \(r\), following port connections in fixed numerical port order.
+    \State Record the sequential visit order of tensors \((t_0, t_1, \ldots)\).
+    \State Encode tensor kinds, underlying resource IDs, and relative edge steps into a standardized string \(S_r\).
+    \State Add \(S_r\) to candidate list \(\mathcal C\).
 \EndFor
-\State Select the lexicographically minimal candidate:
-\[ (S_{\mathrm{min}}, \sigma_{\mathrm{min}}) \gets \operatorname{argmin}_{(S, \sigma) \in \mathcal C} (S) \]
-\State Remap internal edges to canonical indices \(\{i_0, i_1, i_2, \ldots\}\) and external open edges to \(\{o_0, o_1, \ldots\}\) according to \(\sigma_{\mathrm{min}}\).
-\State Compute \(\texttt{computation\_id} \gets \operatorname{SHA-256}(S_{\mathrm{min}})[:20]\).
-\State \Return Canonical component with slots \(\{t_0, t_1, \ldots\}\) and canonical bindings.
+\State \textbf{Select} the alphabetically earliest candidate:
+\[ S_{\mathrm{min}} \gets \min(\mathcal C) \]
+\State \textbf{Standardize indices}: Rename internal contracted indices to \(\{i_0, i_1, i_2, \dots\}\) and open indices to \(\{o_0, o_1, \dots\}\) according to the winning walk.
+\State \textbf{Generate fingerprint}: Compute the cryptographic hash:
+\[ \texttt{computation\_id} \gets \operatorname{SHA-256}(S_{\mathrm{min}})[:20] \]
+\State \Return Standardized contraction component and its \texttt{computation\_id}.
 \end{algorithmic}
 \end{algorithm}
 
-Because this algorithm exhaustively tests all starting roots and takes the lexicographical minimum, the resulting string \(S_{\mathrm{min}}\) and its hash \texttt{computation\_id} form a strict canonical certificate: \emph{two tensor graphs are topologically isomorphic if and only if their canonical identifiers agree.}
+Because this procedure exhaustively tests all starting tensors and deterministically selects the lexicographically minimal description, the resulting string \(S_{\mathrm{min}}\) and its hash \texttt{computation\_id} serve as a strict canonical fingerprint: \emph{two tensor contraction graphs are mathematically isomorphic if and only if their \texttt{computation\_id} hashes match.}
+
+Once graphs are fingerprinted in this way, the compiler tests for graph equivalence with a single \(O(1)\) hash lookup. If two graphs share the same \texttt{computation\_id}, the tensor contraction is scheduled and computed only once, and the result is reused wherever needed in the global correlation matrix.
 
 \subsubsection{Operator choices and explicit cross-correlator isomorphism}
 \label{sec:cross_correlator_isomorphism}
