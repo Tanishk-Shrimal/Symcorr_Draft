@@ -1689,13 +1689,84 @@ where each correlator element is defined by \(C_{ij}(t, t_0) = \langle \mathcal 
 
 Each of the four correlators contains two Wick terms, yielding a total of 8 raw contraction graphs across the matrix. When \textsc{SymCorr}'s global compiler pass (\texttt{build\_global\_cse}) analyzes this system, it uncovers multiple levels of exact algebraic reuse:
 
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[>=latex, scale=0.92, every node/.style={transform shape}]
+  % Styles
+  \tikzset{
+    box_raw/.style={draw=blue!75!black, fill=blue!5, rounded corners=4pt, line width=0.85pt, inner sep=6pt, font=\small},
+    box_proc/.style={draw=orange!85!black, fill=orange!8, rounded corners=4pt, line width=0.85pt, inner sep=6pt, font=\small, align=center},
+    box_canon/.style={draw=teal!85!black, fill=teal!8, rounded corners=4pt, line width=0.95pt, inner sep=6pt, font=\small, align=center},
+    arrow_flow/.style={->, line width=1.1pt, draw=black!70}
+  }
+
+  % STAGE 1: Raw graphs
+  \node[box_raw, text width=4.6cm] (raw_c12) at (0, 1.8) {
+    \textbf{Correlator $C_{12}$ Direct Term}\\[3pt]
+    \footnotesize
+    $\bullet$ Local dummy indices: $\{k_a, k_b, k_c, s_\alpha, s_\beta\}$\\
+    $\bullet$ In-memory node order: $[\text{kernel}, \tau_u, \tau_d, C\gamma_5, \dots]$\\
+    $\bullet$ Initial hash: \texttt{unmatched}
+  };
+
+  \node[box_raw, text width=4.6cm] (raw_c21) at (0, -1.8) {
+    \textbf{Correlator $C_{21}$ Direct Term}\\[3pt]
+    \footnotesize
+    $\bullet$ Local dummy indices: $\{m_0, m_1, m_2, \mu, \nu\}$\\
+    $\bullet$ In-memory node order: $[\tau_d, C\gamma_5, \text{kernel}, \tau_u, \dots]$\\
+    $\bullet$ Initial hash: \texttt{unmatched}
+  };
+
+  % STAGE 2: Algorithm 1 Processing
+  \node[box_proc, text width=4.6cm] (proc) at (6.0, 0) {
+    \textbf{Algorithm 1: Canonicalization}\\[4pt]
+    \footnotesize
+    1. Test all 12 candidate roots $r \in \{0, \dots, 11\}$\\[2pt]
+    2. Deterministic DFS port walk\\[2pt]
+    3. Rename internal edges $\to \{i_0, i_1, \dots\}$\\[2pt]
+    4. Select minimum string $S_{\min} = \min(\mathcal{C})$
+  };
+
+  % STAGE 3: Canonical Component & Hash
+  \node[box_canon, text width=5.0cm] (canon) at (12.2, 0) {
+    \textbf{Canonical Component}\\[3pt]
+    \footnotesize
+    $\bullet$ Standard slots: $[t_0, t_1, t_2, \dots, t_{11}]$\\
+    $\bullet$ Standard edges: $[i_0, i_1, \dots, i_{14}]$\\[4pt]
+    \textbf{Canonical Hash:}\\[1pt]
+    \texttt{\bfseries component\_301a5cf4dae549910cb6}\\[4pt]
+    \textcolor{teal!80!black}{\textbf{Single Execution Plan ($O(1)$ Reuse)}}
+  };
+
+  % Flow arrows
+  \draw[arrow_flow] (raw_c12.east) to[out=0, in=150] (proc.north west);
+  \draw[arrow_flow] (raw_c21.east) to[out=0, in=210] (proc.south west);
+  \draw[arrow_flow] (proc.east) -- (canon.west);
+
+\end{tikzpicture}
+\caption{Workflow of canonical graph isomorphism across off-diagonal matrix elements. Raw contraction terms from \(C_{12}\) and \(C_{21}\) initially possess distinct dummy index labels and in-memory node orderings. Algorithm~\ref{alg:canonical_graph_isomorphism} traverses both graphs deterministically, re-indexing internal edges to \(\{i_0, i_1, \ldots\}\) and selecting the lexicographically minimal string \(S_{\mathrm{min}}\). This maps both terms to the exact same SHA-256 fingerprint (\texttt{component\_301a5cf4dae549910cb6}), ensuring that the tensor contraction is scheduled and evaluated only once.}
+\label{fig:canonicalization_workflow}
+\end{figure*}
+
 \begin{enumerate}
     \item \textbf{Cross-Correlator Graph Isomorphism}:
     Under Euclidean time-reversal and Hermiticity, the off-diagonal matrix elements satisfy the relation
     \begin{equation}
     C_{21}(t, t_0) = \gamma_4 \, C_{12}(t, t_0)^\dagger \, \gamma_4.
     \end{equation}
-    At the level of primitive contraction graphs, the direct term of \(C_{12}\) (connecting \(\mathcal O_1\) at the sink to \(\overline{\mathcal O}_2\) at the source) and the direct term of \(C_{21}\) (connecting \(\mathcal O_2\) at the sink to \(\overline{\mathcal O}_1\) at the source) possess the identical spatial-color connectivity and conjugate spin-matrix pairings. Algorithm~\ref{alg:canonical_graph_isomorphism} maps both graphs to the exact same canonical string \(S_{\mathrm{min}}\) and assigns them the identical \texttt{computation\_id}. Consequently, the tensor contraction is scheduled and evaluated \emph{only once}; the second correlator merely reads the result from the shared resident memory buffer.
+    At the level of primitive contraction graphs, the direct term of \(C_{12}\) (connecting \(\mathcal O_1\) at the sink to \(\overline{\mathcal O}_2\) at the source) and the direct term of \(C_{21}\) (connecting \(\mathcal O_2\) at the sink to \(\overline{\mathcal O}_1\) at the source) possess the identical spatial-color connectivity and conjugate spin-matrix pairings. 
+    
+    As illustrated in Fig.~\ref{fig:canonicalization_workflow}, the raw graphs initially carry completely distinct dummy index names (e.g., \(\{k_a, k_b, k_c\}\) in \(C_{12}\) versus \(\{m_0, m_1, m_2\}\) in \(C_{21}\)). During compilation, Algorithm~\ref{alg:canonical_graph_isomorphism} traverses both graphs along identical port sequences:
+    \begin{itemize}
+        \item Slot \(t_0\) (Sink Kernel): LapH modes \(\to (i_0, i_1, i_2)\).
+        \item Slot \(t_1\) (\(\tau_u^{(1)}\)): modes \(\to (i_0, i_4)\), spins \(\to (i_3, i_5)\).
+        \item Slot \(t_2\) (\(C\gamma_5\)): diquark spin indices \(\to (i_3, i_6)\).
+        \item Slot \(t_3\) (\(\tau_d\)): modes \(\to (i_1, i_7)\), spins \(\to (i_6, i_8)\).
+        \item Slot \(t_4\) (Source Kernel): LapH modes \(\to (i_9, i_7, i_4)\).
+    \end{itemize}
+    Both graphs yield the exact same winning descriptor string \(S_{\mathrm{min}}\) and the identical identifier \texttt{component\_}\allowbreak\texttt{301a5cf4\dots}. Consequently, the tensor contraction is scheduled and evaluated \emph{only once}; the second correlator merely reads the result from the shared resident memory buffer.
+    
+    In contrast, the exchange term of the nucleon correlator possesses crossed valence lines: slot \(t_4\) binds modes to \((i_4, i_7, i_9)\) (swapping diquark and spectator connections). This topological difference alters \(S_{\mathrm{min}}\) and produces a distinct identifier (\texttt{component\_}\allowbreak\texttt{9b66414a\dots}), instructing the compiler to schedule it as an independent numerical operation.
     
     \item \textbf{Global Resource Deduplication Across the Full Basis}:
     Even when the contraction topologies differ between diagonal and off-diagonal elements (because \(\mathcal O_1\) contains \(\gamma_5\) while \(\mathcal O_2\) contains \(\gamma_4\gamma_5\)), all 8 Wick graphs share the exact same underlying spatial and propagation data:
