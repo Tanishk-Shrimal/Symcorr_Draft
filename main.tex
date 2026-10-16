@@ -28,8 +28,15 @@
 \begin{document}
 
 \let\WriteBookmarks\relax
-\def\floatpagepagefraction{1}
-\def\textpagefraction{.001}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\dbltopfraction}{0.9}
+\renewcommand{\bottomfraction}{0.8}
+\renewcommand{\textfraction}{0.07}
+\renewcommand{\floatpagefraction}{0.7}
+\renewcommand{\dblfloatpagefraction}{0.7}
+\setcounter{topnumber}{3}
+\setcounter{dbltopnumber}{2}
+\setcounter{totalnumber}{5}
 \shorttitle{Symbolic Correlation construction package}
 \shortauthors{Tanishk Shrimal, M. Padmanath}
 
@@ -612,12 +619,12 @@ Derivative and displaced operators are written by applying \texttt{derivative}, 
 \texttt{shift} to the field on which the operation acts. Fig.~\ref{fig:displaced_operators} shows the
 three constructions used in the validation of Sec.~\ref{sec:validation}, together with the operators
 they define. The lattice operations follow the conventions
-\begin{equation}
-T_{+i}\psi(x)=U_i(x)\,\psi(x+\hat\imath),\qquad
-T_{-i}\psi(x)=U_i^\dagger(x-\hat\imath)\,\psi(x-\hat\imath),\qquad
-\nabla_i=\tfrac12\left(T_{+i}-T_{-i}\right),
-\label{eq:transport_conventions}
-\end{equation}
+\begin{align}
+T_{+i}\psi(x)&=U_i(x)\,\psi(x+\hat\imath),\nonumber\\
+T_{-i}\psi(x)&=U_i^\dagger(x-\hat\imath)\,\psi(x-\hat\imath),
+\label{eq:transport_conventions}\\
+\nabla_i&=\tfrac12\left(T_{+i}-T_{-i}\right),\nonumber
+\end{align}
 with periodic spatial boundaries and no lattice-spacing factor, where $U_i$ are the stout-smeared
 spatial links of the gauge configuration that also define the Laplacian eigenvectors. A path is
 listed from the field position towards the displaced endpoint, so that
@@ -724,303 +731,54 @@ one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-L
 \label{sec:wick}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+Wick contraction is applied to basis correlators. A correlator containing linear combinations of
+operators is first expanded into weighted basis correlators, and the weights multiply the
+resulting terms; identical basis correlators are contracted only once.
+
 \subsection{Flavor-compatible contractions}
 
-Wick contraction begins only after any operator linear combinations have been
-expanded into definite basis correlators. For one such correlator, SymCorr
-collects the quark and antiquark fields from all operator insertions while
-retaining their original left-to-right ordering. The first combinatorial task
-is then to determine every complete pairing allowed by the explicit quark
-flavors carried by those fields.
-
-For each flavor \(f\), let \(Q_f\) denote the set of quark fields and
-\(\bar Q_f\) the set of antiquark fields appearing in the correlator. A
-complete Wick contraction requires
-
+For one basis correlator, \textsc{SymCorr} collects the quark and antiquark fields of all operator
+insertions in their original order and generates every complete pairing that conserves the flavor
+carried by each field. If a flavor $f$ occurs $n_f$ times as a quark and $n_f$ times as an
+antiquark, every bijection between them is generated, so that the number of pairings is
 \begin{equation}
-|Q_f| = |\bar Q_f|
-\qquad
-\text{for every flavor } f.
-\label{eq:wick_flavor_balance}
-\end{equation}
-
-If this condition fails for any flavor, the current Wick engine produces no
-complete contraction term for that basis correlator. Cross-flavor pairings are
-never introduced to compensate for the mismatch.
-
-When the flavor counts are balanced, every bijection between the quark and
-antiquark fields of the same flavor is generated. If a flavor occurs
-\(n_f\) times as a quark and \(n_f\) times as an antiquark, that flavor channel
-therefore contributes \(n_f!\) possible pairings. Since the choices for
-different flavors are independent, the complete set of flavor-compatible
-pairings is the Cartesian product of the channel-wise choices, with total
-number
-
-\begin{equation}
-N_{\mathrm{pair}}
-=
-\prod_f n_f! .
+N_{\mathrm{pair}}=\prod_f n_f!\,.
 \label{eq:number_wick_pairings}
 \end{equation}
-
-This enumeration is important once identical flavors occur several times in a
-multi-quark or multi-hadron operator: direct and exchange pairings arise from
-the same rule rather than being encoded as separate hand-written topologies.
-
-Flavor matching is based on the symbolic QCD flavor, not on the identity of a
-numerical propagator resource that may eventually be used at run time. In
-particular, \(u\) and \(d\) remain distinct Wick flavors even if a numerical
-setup uses the same light-quark parameters or the same underlying data source
-for both. Isospin combinations or other flavor superpositions must therefore
-be specified explicitly through the operator linear-combination layer; the
-Wick engine does not infer them from numerical degeneracies.
-
-The pairing search is also not restricted to fields belonging to different
-operator insertions. A quark and antiquark of the same flavor may be paired even
-when both occur on the same side of a two-point function or within the same
-composite insertion. Retaining these possibilities is necessary for closed
-quark loops and disconnected or mixed contraction topologies. Filtering the
-pairings to sink--source lines alone would silently remove such terms before
-their topology could be identified.
-
-At this stage only the admissible field pairings have been determined. Each
-complete pairing is retained explicitly and is passed to the subsequent Wick
-steps, which determine its fermionic sign and replace each matched
-quark--antiquark pair by the corresponding symbolic propagation line. No
-numerical lattice data, contraction ordering, or hardware information enters
-this flavor-compatibility decision.
+If the counts differ for any flavor, the correlator has no complete contraction. Flavor is the
+symbolic QCD flavor: $u$ and $d$ remain distinct even when the same perambulator data are used for
+both, and isospin combinations are written explicitly as linear combinations of operators. Pairings
+are not restricted to fields in different insertions; a quark and an antiquark on the same time
+slice may be contracted, which produces equal-time lines and closed quark loops
+(Sec.~\ref{sec:topologies}).
 
 \subsection{Fermionic signs}
 
-The relative sign of each Wick term is fixed by the ordering of the fermionic
-fields in the original symbolic correlator. SymCorr therefore retains the
-encounter order of all quark-field leaves across the ordered operator
-insertions. Spin matrices, color tensors, and spatial transformations remain
-part of the operator expression, but they do not themselves contribute to the
-Grassmann permutation parity.
-
-Let the ordered fermionic fields in a basis correlator be
-\(F=(f_1,\ldots,f_{2N})\), and consider one complete flavor-compatible pairing
-
+The relative sign of a Wick term is fixed by the ordering of the fermion fields in the correlator.
+For the ordered fields $F=(f_1,\ldots,f_{2N})$ and one complete pairing
+$\mathcal P=\{(q_{i_1},\bar q_{j_1}),\ldots,(q_{i_N},\bar q_{j_N})\}$, \textsc{SymCorr} forms the
+sequence $F_{\mathcal P}=(q_{i_1},\bar q_{j_1},\ldots,q_{i_N},\bar q_{j_N})$ and assigns
 \begin{equation}
-\mathcal P
-=
-\bigl\{
-(q_{i_1},\bar q_{j_1}),\ldots,
-(q_{i_N},\bar q_{j_N})
-\bigr\}.
-\end{equation}
-
-For the purpose of determining the sign, SymCorr forms the sequence in which
-each quark is placed immediately before its paired antiquark,
-
-\begin{equation}
-F_{\mathcal P}
-=
-(q_{i_1},\bar q_{j_1},\ldots,
- q_{i_N},\bar q_{j_N}),
-\end{equation}
-
-and determines the parity of the permutation that maps the original field
-ordering \(F\) to this paired ordering. If \(I(\mathcal P)\) is the number of
-inversions in that permutation, the Wick sign stored by the frontend is
-
-\begin{equation}
-s_{\mathcal P}=(-1)^{I(\mathcal P)}.
+s_{\mathcal P}=(-1)^{I(\mathcal P)},
 \label{eq:wick_fermionic_sign}
 \end{equation}
+where $I(\mathcal P)$ is the number of inversions of the permutation that maps $F$ to
+$F_{\mathcal P}$. The order in which the pairs are listed does not matter, because exchanging two
+complete pairs is an even permutation. For the field order $q_1\,q_2\,\bar q_1\,\bar q_2$, the
+pairing $(q_1,\bar q_1)(q_2,\bar q_2)$ corresponds to the permutation $(1,3,2,4)$ with one inversion
+and sign $-1$, and the exchanged pairing $(q_1,\bar q_2)(q_2,\bar q_1)$ to $(1,4,2,3)$ with two
+inversions and sign $+1$. Direct and exchange signs of all multi-quark systems follow from the same
+rule. The sign is combined with the expansion weight into the coefficient of the term; the numerical
+backend never infers or repairs signs.
 
-This is equivalent to counting the parity of the adjacent exchanges of
-fermionic fields required to bring every contracted pair together. The order
-in which complete pairs are listed does not affect the result: exchanging two
-whole pairs moves two fermionic fields past two others and therefore changes
-the permutation by an even number of transpositions.
+\subsection{Canonicalization}
 
-A four-field example makes the rule explicit. Suppose the original fermionic
-order is
-
-\begin{equation}
-q_1\,q_2\,\bar q_1\,\bar q_2 .
-\end{equation}
-
-For the pairing
-\((q_1,\bar q_1)(q_2,\bar q_2)\), the paired sequence corresponds to the
-position permutation \((1,3,2,4)\), which contains one inversion and hence has
-sign \(-1\). For the exchanged pairing
-\((q_1,\bar q_2)(q_2,\bar q_1)\), the position permutation is
-\((1,4,2,3)\), which contains two inversions and hence has sign \(+1\).
-Thus the relative direct/exchange sign is obtained from the same general
-permutation rule used for larger multi-quark systems; it is not inserted as a
-special topology-dependent convention.
-
-The sign and the algebraic coefficient are kept as separate pieces of the Wick
-term. For a basis correlator the contraction engine initially associates unit
-coefficient with each generated pairing and stores its Grassmann parity
-separately. If the correlator originated from a linear combination of
-operators, the corresponding complex weight multiplies the algebraic
-coefficient without altering the sign calculation. At the subsequent
-physics-representation boundary, these factors are combined into the
-coefficient multiplying the logical correlator,
-
-\begin{equation}
-c_{\mathcal P}^{\mathrm{phys}}
-=
-s_{\mathcal P}\,c_{\mathcal P}.
-\label{eq:wick_sign_coefficient}
-\end{equation}
-
-Keeping the two quantities distinct during the Wick stage makes the origin of a
-minus sign inspectable before later canonicalization, contraction planning, or
-numerical execution. In particular, the numerical backend does not infer or
-repair fermionic signs from propagator orientation or tensor layout; the sign
-is already fixed by the symbolic field ordering.
-
-\subsection{Canonicalization and symbolic simplification}
-
-Canonicalization in SymCorr is used to identify symbolic descriptions that are
-mathematically equivalent under rules that are explicit in the implementation.
-It is not used to guess additional field-theory identities. In particular, the
-frontend retains the expression exactly as supplied by the user, while a
-separate structural identity removes dependence on arbitrary dummy-index names.
-Spin, color, and position labels are alpha-renamed deterministically, and the
-momentum map is transformed through the same position-label mapping. Ordered
-factor structure, flavor, transformations, and momentum values remain part of
-the operator identity, whereas user metadata is treated as annotation rather
-than symbolic physics.
-
-A second canonicalization step occurs at the compiler boundary before Wick
-contraction. Field-operation chains are normalized without mutating the
-frontend operator. For pure coordinate shifts and gauge-covariant parallel
-transport, adjacent inverse lattice hops cancel. For example,
-
-\begin{equation}
-(+x,-x,+y)\longrightarrow(+y).
-\label{eq:path_canonicalization}
-\end{equation}
-
-Nested field operations are then fused into a compiler-internal composite
-operation that preserves their order. Other primitive operations are retained
-unchanged by this pass, and the operator momentum assignments and metadata are
-copied to the normalized compiler-side representation.
-
-This normalization is deliberately performed before linear-combination terms
-are merged. Two frontend operators can therefore remain visibly different as
-user objects yet become the same compiler basis operator when, for example,
-their transport paths differ only by adjacent inverse hops. Once normalized,
-weights multiplying identical ordered basis-operator tuples are added. The
-current implementation removes a resulting basis weight when its magnitude is
-smaller than \(10^{-15}\). For a two-point correlation matrix, the corresponding
-simplification pass performs the same coefficient aggregation separately within
-each matrix element for identical normalized sink--source basis pairs.
-
-The same normalized operator identity is also used at the Wick-cache boundary.
-The cache key is the complete ordered tuple of basis-operator insertions rather
-than an unordered set. Consequently, repeated occurrences of the same
-normalized symbolic correlator can reuse an already generated Wick expansion,
-while a physically different operator ordering remains a distinct contraction
-problem. This reuse avoids repeated symbolic work but does not alter the set of
-Wick pairings or their fermionic signs.
-
-The scope of these transformations is intentionally restricted. The pre-Wick
-normalizer does not commute or reorder fermion factors, replace spin or color
-structures using additional identities, infer cyclic trace equivalences, or
-simplify expressions using numerical tensor values. Such transformations could
-change the field ordering or require assumptions that belong to later compiler
-representations. At this stage SymCorr therefore applies only the
-canonicalization rules for which equivalence is explicit in the symbolic
-algebra.
-
-There is a separate simplification mechanism later in the compilation pipeline,
-after the Wick terms have been lowered to numerical contraction graphs. At that
-stage exact global common-subexpression analysis can canonicalize reusable
-tensor-network components and combine exactly equal complete Wick terms within
-a correlator. The later complete-term aggregation uses exact coefficient
-cancellation for scalar terms rather than the \(10^{-15}\) tolerance used for
-pre-Wick operator-combination weights. Keeping these two stages distinct avoids
-conflating symbolic algebra with numerical contraction reuse; the latter is
-discussed in Sec.~\ref{sec:execution}.
-
-\subsection{Output of the contraction stage}
-
-For each normalized basis correlator, the Wick engine returns an ordered
-collection of symbolic Wick terms. A convenient schematic description of one
-such term is
-
-\begin{equation}
-W_\alpha
-=
-\left(
- s_\alpha,
- c_\alpha,
- \mathcal P_\alpha,
- \mathcal E_\alpha,
- \mathcal C_\alpha
-\right),
-\label{eq:wick_term_contents}
-\end{equation}
-
-where \(s_\alpha\) is the fermionic sign, \(c_\alpha\) is the algebraic
-coefficient, \(\mathcal P_\alpha\) is the explicit set of paired quark and
-antiquark fields, \(\mathcal E_\alpha\) is the contracted symbolic expression,
-and \(\mathcal C_\alpha\) records the locality-graph components inferred from
-the pairing. These quantities remain symbolic: no perambulator, distillation
-kernel, tensor shape, external file, memory buffer, or execution device has yet
-been introduced.
-
-The pairing \(\mathcal P_\alpha\) is retained directly rather than being
-recoverable only from a printed algebraic expression. Each entry identifies the
-quark endpoint and the antiquark endpoint of one logical propagation line,
-including their flavor and symbolic spin, color, and position labels. This
-explicit pairing is the authoritative input used by the next compiler boundary
-to construct logical quark lines. It also retains the information needed to
-associate field-level derivatives, transports, shifts, and spatial
-representations with the correct endpoints.
-
-The symbolic expression \(\mathcal E_\alpha\) retains the non-fermionic tensor
-content inherited from the original operators and represents contracted quark
-lines symbolically. In particular, spin matrices, color tensors, gauge-link
-objects, and their index connectivity remain visible rather than being replaced
-by numerical arrays at the Wick stage. The later physics-lowering pass reads
-these symbolic tensors and the explicit pairing together; it does not infer the
-quark-line topology from numerical tensor shapes.
-
-In addition to the algebraic term, SymCorr computes a locality graph from the
-pairing. Position labels form the graph vertices and a contracted quark line
-connects the position labels of its two endpoints. Each resulting graph
-component records both the locality labels that it contains and the operator
-insertions touched by those labels. The present Wick-level topology label is a
-coarse diagnostic: a term is classified as \emph{disconnected} when all
-components are local to individual operator insertions, \emph{connected} when
-there are spanning components and no purely local component, and \emph{mixed}
-when spanning and local components occur together. This terminology does not
-assert that the complete numerical tensor network consists of one connected
-component.
-
-For composite operators, the same component records provide an additional
-structural diagnostic. The current \texttt{factorized} property is true when no
-locality component spans more than two operator insertions; a component touching
-more than two insertions marks a multi-operator exchange structure. This
-information is useful for inspecting the generated Wick terms, but it is kept
-separate from later numerical common-subexpression analysis and contraction
-planning.
-
-When a basis correlator originates from a linear combination, its previously
-computed complex basis weight is applied to the Wick-term coefficient while the
-cached sign, pairing, expression, and component structure remain unchanged. The
-next lowering step then combines sign and coefficient and translates each Wick
-term into a backend-independent logical correlator. In the current PhysicsIR,
-the resulting records contain logical quark lines, spin tensors, color tensors,
-gauge tensors, field-operation information, and momentum assignments. The
-Wick-level locality-component and topology diagnostics are not part of this
-PhysicsIR data contract.
-
-This boundary is important because it marks the end of the purely symbolic Wick
-problem. By the time a term leaves this stage, SymCorr has fixed which fermion
-fields contract, the associated Grassmann sign, the algebraic weight, and the
-symbolic operator structures that accompany those propagation lines. The next
-stage may reorganize this information into backend-independent physics records,
-but it is not permitted to invent a new pairing or reinterpret the fermionic
-sign.
+Before contraction, chains of field operations are normalized, for example by cancelling adjacent
+inverse hops of shifts and transports, $(+x,-x,+y)\to(+y)$. Basis operators that differ only in the
+names of contracted indices are identified and their coefficients added; terms whose coefficients
+cancel exactly are removed. Open indices keep their names, so that, e.g., an operator and its
+transpose in two open spin indices are not identified. No further identities, such as Fierz
+rearrangements or relations that depend on numerical values, are applied.
 
 \subsection{Contraction topologies}
 \label{sec:topologies}
@@ -1035,7 +793,7 @@ quark lines all connect source and sink, terms that contain equal-time lines, an
 terms with closed loops. The relative signs and the subsequent tensor-network construction follow
 from the same rules for all of them.
 
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \begin{tikzpicture}[
     hadron/.style={ellipse, draw, fill=black!12, minimum width=0.34cm, minimum height=0.62cm, inner sep=0pt},
@@ -1144,25 +902,29 @@ gives the counts.}
 \label{fig:topologies}
 \end{figure*}
 
-\begin{table}[t]
+\begin{table}[tbp]
 \centering
 \caption{Number of Wick terms generated by \textsc{SymCorr} for $C(t,t_0)=\langle\mathcal O(t)\,\mathcal O^\dagger(t_0)\rangle$,
-separated into terms whose quark lines all connect source and sink, connected terms containing
-equal-time lines, and disconnected terms with closed loops. Two-meson and two-baryon operators
-are products of separately projected hadrons; $p\pi^+$ is local.}
+separated into terms whose quark lines all connect source and sink (src--snk), connected terms
+containing equal-time lines, and disconnected terms with closed loops. The operators are
+$\pi^+=\bar d\gamma_5 u$, $\bar u u$, $p=\epsilon_{abc}(u_a^\top C\gamma_5 d_b)u_c$ and
+$\Delta^{++}=\epsilon_{abc}(u_a^\top C\gamma_i u_b)u_c$; two-meson and two-baryon operators are
+products of separately projected hadrons, and $p\pi^+$ is local.}
 \label{tab:topology_counts}
+\small
+\setlength{\tabcolsep}{5pt}
 \begin{tabular}{lrrrr}
 \toprule
-$\mathcal O$ & terms & source--sink & equal-time & loops \\
+$\mathcal O$ & terms & src--snk & equal-time & loops \\
 \midrule
-$\pi^+=\bar d\gamma_5 u$ & 1 & 1 & 0 & 0 \\
+$\pi^+$ & 1 & 1 & 0 & 0 \\
 $\bar u u$ & 2 & 1 & 0 & 1 \\
-$p=\epsilon_{abc}(u_a^\top C\gamma_5 d_b)u_c$ & 2 & 2 & 0 & 0 \\
-$\Delta^{++}=\epsilon_{abc}(u_a^\top C\gamma_i u_b)u_c$ & 6 & 6 & 0 & 0 \\
+$p$ & 2 & 2 & 0 & 0 \\
+$\Delta^{++}$ & 6 & 6 & 0 & 0 \\
 $\pi^+\pi^+$ & 4 & 4 & 0 & 0 \\
 $\pi^+\pi^-$ & 4 & 1 & 2 & 1 \\
 $p\pi^+$ & 12 & 6 & 6 & 0 \\
-$pp$ ($I=1$, ${}^1S_0$) & 48 & 48 & 0 & 0 \\
+$pp$ ($I{=}1$, ${}^1S_0$) & 48 & 48 & 0 & 0 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -1172,343 +934,77 @@ $pp$ ($I=1$, ${}^1S_0$) & 48 & 48 & 0 & 0 \\
 \label{sec:distillation_lowering}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Distillation primitives}
+After Wick contraction every term is a product of quark propagators and of the spin, color and
+spatial structures of the operators. In distillation, the propagators are replaced by perambulators
+and the operator structure on each time slice by spatial kernels built from the Laplacian
+eigenvectors. \textsc{SymCorr} derives both from the explicit index connectivity of the operators,
+without a library of meson, baryon or tetraquark shapes.
 
-The input to distillation lowering is the validated PhysicsIR described at the
-end of Sec.~\ref{sec:wick}. At this boundary the fermionic pairing and
-coefficient of each Wick contribution are already fixed. The purpose of the
-distillation layer is therefore not to redo the field-theory algebra, but to
-translate the physical records into a small set of objects that describe the
-spatial/color structures and propagation resources required by a distillation
-calculation.
+\subsection{Operator kernels}
 
-The first primitive is a \emph{projected field endpoint}. Every endpoint in
-PhysicsIR carries an explicit spatial representation, currently either LapH or
-POINT, together with any field-local derivative, transport, or shift operations.
-For a LapH endpoint, the compiler realizes the contribution according to the
-orientation of the fermion field,
-
-\begin{equation}
-q_{\mathrm{LAPH}} \longmapsto V,
-\qquad
-\bar q_{\mathrm{LAPH}} \longmapsto V^\dagger,
-\label{eq:laph_endpoint_realization}
-\end{equation}
-
-whereas an explicitly POINT endpoint remains a distinct point contribution.
-This translation records which spatial object is required; it does not load an
-eigenvector tensor or construct a numerical array. The operations attached to
-the original endpoint remain associated with the realized field so that their
-placement is not reconstructed later from tensor shape or ordering.
-
-Before these projected fields are assembled, SymCorr partitions each logical
-correlator into spatial--color components. The partition is determined from the
-incidence of field endpoints, position labels, color labels, explicit color
-tensors, and gauge-link tensors. Each connected component containing at least
-one field endpoint becomes an operator vertex. Spin tensors do not determine
-this partition. Consequently, the decomposition is independent of whether the
-original symbolic object was described as a meson, baryon, tetraquark, or
-multi-hadron operator; it follows only from the explicit spatial and color
-connectivity already present in PhysicsIR.
-
-A realized spatial--color component is represented by a \texttt{KernelRecipe}.
-Conceptually, this recipe specifies the operator-dependent projected object that
-will ultimately be built from the required eigenvector or point contributions,
-field-local spatial transformations, color tensors, gauge tensors, position
-variables, and momentum projections. For LapH fields its external spatial legs
-are LapH-mode indices; POINT fields remain distinguishable and retain a
-color-like external spatial leg. The recipe is therefore a compiler description
-of the object to be materialized rather than the materialized tensor itself.
-
-Spin structure is kept as a separate primitive. Gamma matrices and other spin
-tensors have already been converted into explicit \texttt{SpinTensorRecord}
-objects in PhysicsIR, and they are deliberately excluded from the identity of a
-spatial/color \texttt{KernelRecipe}. This separation mirrors the distillation
-factorization discussed in Sec.~\ref{sec:background}: the reusable spatial
-object and the spin structure that contracts with it need not be treated as one
-opaque tensor at the compiler boundary. It also allows two contributions with
-the same spatial/color construction but different spin structure to share the
-same spatial resource where the later contraction graph permits it.
-
-The remaining primitive class describes quark propagation between these
-operator-dependent objects. From the exact logical quark lines, later stages
-reconstruct open fermion paths and closed cycles and assign corresponding
-propagation requirements. For an open path this requirement is represented by a
-\texttt{PropagationRecipe}; with no inserted current it denotes an ordinary
-perambulator requirement, while supported explicit POINT-current insertions can
-produce a generalized propagation requirement. The detailed construction and
-current implementation boundary of these resources are discussed below in the
-subsection on propagation resources.
-
-These objects should be distinguished from concrete numerical data. At this
-stage a kernel recipe is not yet an evaluated elemental, and a propagation
-recipe is not an in-memory perambulator. No filename, HDF5 group, source time,
-tensor shape, physical buffer, CPU/GPU placement, or contraction schedule is
-chosen by distillation realization. Those choices belong to later graph,
-resource-binding, materialization, and execution stages. The output of this
-layer is therefore a more concrete statement of the required distillation
-calculation while remaining independent of a particular data layout or
-machine.
-
-\subsection{Operator-dependent structures}
-
-The operator-dependent part of the distillation calculation is constructed from
-the spatial--color components identified above rather than from a fixed library
-of meson, baryon, or tetraquark tensor shapes. For one component \(A\), let
-\(\mathbf x_r\) denote its position variables, \(\mathbf p_r\) the associated
-momenta, and \(k_i\) the external LapH-mode indices carried by its projected
-fields. A useful schematic form of the corresponding spatial kernel is
-
-\begin{equation}
+A smeared quark field contributes $V$ and a smeared antiquark field $V^\dagger$. The fields of one
+time slice are grouped into components that are connected by shared positions, color indices or
+color tensors; each component becomes one spatial kernel. For a component $A$ with positions
+$\mathbf x_r$, momenta $\mathbf p_r$ and external LapH-mode indices $k_i$,
+\begin{align}
 \mathcal K_A(\{k_i\};t)
-=
+&=
 \sum_{\{\mathbf x_r\},\{a_i\}}
-\exp\!\left(
- i\sum_r \mathbf p_r\!\cdot\!\mathbf x_r
-\right)
-\mathcal C_A(\{a_i\})
-\mathcal U_A(\{\mathbf x_r\},\{a_i\})
-\prod_i
+e^{\,i\sum_r \mathbf p_r\cdot\mathbf x_r}\,
+\mathcal C_A(\{a_i\})\nonumber\\
+&\qquad\times\prod_i
 \mathcal V_i(\mathbf x_{r(i)},a_i,k_i;t),
 \label{eq:generic_operator_spatial_kernel}
-\end{equation}
-
-where \(\mathcal C_A\) denotes the explicit color-tensor structure,
-\(\mathcal U_A\) denotes any explicit gauge-link structure represented in the
-component, and \(\mathcal V_i\) denotes the appropriately oriented LapH
-factor, including the field-local spatial operations attached to that endpoint.
-For a quark endpoint this factor is built from \(V\), while for an antiquark
-endpoint it is built from the conjugate/projected orientation corresponding to
-\(V^\dagger\). Equation~\eqref{eq:generic_operator_spatial_kernel} is schematic:
-its purpose is to display the information retained by the compiler rather than
-to impose one fixed tensor rank or one fixed pattern of spatial indices.
-
-For example, a local bilinear whose two LapH fields are contracted to a color
-singlet gives a two-mode spatial kernel of the schematic form
-
-\begin{equation}
+\end{align}
+where $\mathcal C_A$ is the color tensor and $\mathcal V_i$ the eigenvector factor of field $i$,
+complex conjugated for an antiquark, after the derivative, transport or shift operations of that
+field (Eq.~\eqref{eq:transport_conventions}) have been applied. The spatial sum carries no volume
+normalization. A local color-singlet bilinear and a local three-quark operator give
+\begin{align}
 K_{kl}^{(\mathbf p)}(t)
-=
-\sum_{\mathbf x,a}
- e^{+i\mathbf p\cdot\mathbf x}
+&=\sum_{\mathbf x,a} e^{\,i\mathbf p\cdot\mathbf x}
  \left[\mathcal D_{\bar q}V(t)\right]^*_{\mathbf x a k}
  \left[\mathcal D_q V(t)\right]_{\mathbf x a l},
-\label{eq:bilinear_spatial_kernel}
-\end{equation}
-
-where \(\mathcal D_q\) and \(\mathcal D_{\bar q}\) stand for the spatial
-operations attached to the two field endpoints. The spin matrix is not folded
-into this kernel. In the simplest separable case the familiar elemental-like
-object is obtained only after the independent spin structure is attached, for
-example through a factor \(\Gamma_{\alpha\beta}K_{kl}\). This is the concrete
-reason that SymCorr does not use the full spin--spatial elemental as its
-reusable spatial resource identity.
-
-The same construction applies without changing the lowering algorithm when the
-component has higher rank. For a local three-quark color-singlet structure, the
-spatial part has the schematic form
-
-\begin{equation}
+\label{eq:bilinear_spatial_kernel}\\
 B_{k_1k_2k_3}^{(\mathbf p)}(t)
-=
-\sum_{\mathbf x,a,b,c}
- e^{+i\mathbf p\cdot\mathbf x}
- \epsilon_{abc}
- \left[\mathcal D_1 V(t)\right]_{\mathbf x a k_1}
- \left[\mathcal D_2 V(t)\right]_{\mathbf x b k_2}
- \left[\mathcal D_3 V(t)\right]_{\mathbf x c k_3}.
+&=\sum_{\mathbf x,a,b,c} e^{\,i\mathbf p\cdot\mathbf x}\,\epsilon_{abc}
+ \left[\mathcal D_1 V(t)\right]_{\mathbf x a k_1}\nonumber\\
+&\qquad\times\left[\mathcal D_2 V(t)\right]_{\mathbf x b k_2}
+ \left[\mathcal D_3 V(t)\right]_{\mathbf x c k_3},
 \label{eq:three_quark_spatial_kernel}
-\end{equation}
+\end{align}
+where $\mathcal D$ denotes the field operations. Spin matrices are not folded into the kernels; they
+remain separate tensors. As a consequence, operators that differ only in their spin structure, such as
+$\bar d\gamma_5 u$ and $\bar d\gamma_i u$, or nucleon operators with different diquark matrices,
+share the same kernel. Kernels with the same field orientations, field operations, color structure
+and momenta are identified as one resource, independently of the names of their indices and of the
+quark flavors, since the eigenvectors do not depend on flavor.
 
-The diquark spin matrix and any remaining open spin index are represented
-separately. Thus the difference between the bilinear and three-quark examples
-appears through the number of projected fields and their explicit color
-connectivity, not through a hadron-specific branch in the distillation
-compiler.
+\subsection{Propagation}
 
-Momentum is part of the spatial resource itself. SymCorr retains one momentum
-assignment for each position group in a component and uses the phase convention
-\(e^{+i\mathbf p\cdot\mathbf x}\); Hermitian conjugation has already reversed
-the corresponding source momentum where required. For a component containing
-several independent position labels, the spatial object contains the product of
-those phase factors, equivalently the exponential shown in
-Eq.~\eqref{eq:generic_operator_spatial_kernel}. This keeps constituent momenta
-visible for bilocal and multi-local constructions rather than replacing them by
-only the total momentum.
-
-The compiler assigns each \texttt{KernelRecipe} a deterministic spatial
-resource identity. That identity is invariant under dummy position/color
-renaming but includes the projected-field orientations, field-local operations,
-color tensors, explicit gauge connectivity, and momentum assignments. Spin and
-quark flavor are deliberately excluded from this spatial identity. Spin appears
-as separate primitive tensor nodes in the subsequent contraction graph, while
-the LapH eigenvector subspace itself is a gauge-field spatial object rather
-than a flavor-dependent quark propagator. Equal spatial resource identities
-therefore expose possible reuse without yet merging the distinct occurrences
-that appear in different Wick terms or matrix elements; that global reuse is a
-later optimization step.
-
-For the currently executable exact-distillation path, the compatibility bridge
-turns a spatial recipe into primitive operations for the required eigenvector
-factors, momentum phases, and the supported \(\delta\) and \(\epsilon\) color
-tensors. Derivative information remains attached to the field and can be
-realized by the numerical tensor provider from derivative eigenvector data or,
-when configured, from the underlying eigenvectors and gauge links. The recipe
-layer is broader than this executable subset: explicit \texttt{GaugeLink}
-tensor nodes can be represented in the spatial/color component, but the current
-numerical kernel ISA rejects such standalone gauge-tensor nodes rather than
-silently approximating them. This distinction is retained here so that symbolic
-representability is not presented as equivalent to validated numerical
-execution.
-
-The result of this lowering is therefore an operator-dependent spatial resource
-with explicit LapH ports, together with separate spin tensors whose indices are
-connected only when the primitive contraction graph is built. This is the form
-in which SymCorr carries the operator structure forward to the propagation and
-contraction stages: sufficiently concrete to determine the required numerical
-tensors, but still independent of the contraction order, memory layout, or
-execution device.
-
-\subsection{Propagation resources}
-
-After the operator-dependent kernels have been identified, the Wick quark lines
-must be mapped to the propagation tensors that connect their spatial and spin
-ports. SymCorr performs this step from the exact fermion topology rather than
-from operator names or tensor shapes. Each open quark path is decomposed into
-its ordered Wick-propagator segments and any operator-local transitions that
-join successive segments. The result is a logical propagation requirement; the
-compiler still does not load or construct a numerical propagator.
-
-For an ordinary path containing one Wick segment and no absorbed insertion, the
-required object is the usual distillation perambulator introduced in
-Eq.~\eqref{eq:perambulator}. The corresponding \texttt{PropagationRecipe}
-records the exact source and sink spatial kernels, the particular open port on
-each kernel, the flavor carried by the Wick segment, and the spatial
-representation of the two endpoints. Schematically, its numerical realization
-has the canonical index structure
-
+An open quark line from a source kernel to a sink kernel becomes a perambulator of the line's
+flavor with the index order
 \begin{equation}
-\tau_f(t_{\mathrm{snk}},t_{\mathrm{src}})
-\equiv
-\tau_{f;\,k\alpha,\,l\beta}
-(t_{\mathrm{snk}},t_{\mathrm{src}}),
+\tau_f(t_{\mathrm{snk}},t_{\mathrm{src}})_{k\alpha,\,l\beta},
 \label{eq:propagation_resource_layout}
 \end{equation}
-
-where \((k,\alpha)\) are the sink LapH-mode and spin indices and
-\((l,\beta)\) are the source indices. The orientation is inherited from the
-Wick pairing and is therefore fixed before any external storage convention is
-considered.
-
-Open paths can also contain explicit local current insertions. In the current
-compiler, a current is absorbed into a generalized propagation resource only
-when its quark and antiquark endpoints are explicitly represented as POINT
-fields belonging to one spatial--color component. For one insertion, the
-logical structure is schematically
-
+where $(k,\alpha)$ are the sink mode and spin and $(l,\beta)$ the source mode and spin. If only
+perambulators from a fixed source time $t_0$ are stored, the reverse direction is reconstructed with
+$\gamma_5$-Hermiticity,
 \begin{equation}
-\mathcal T_{f_0\to f_1}^{J}
-(t_2,t_1,t_0),
-\label{eq:generalized_propagation_schematic}
-\end{equation}
-
-where the propagation segment before the current carries flavor \(f_0\), the
-segment after it carries flavor \(f_1\), and \(J\) denotes the specified local
-current structure. SymCorr does not assume that the two flavors are equal. A
-flavor-changing current is represented as a change between adjacent propagation
-segments rather than as a flavor change inside one Wick segment.
-
-The generalized recipe retains substantially more information than only the
-name of the current. For every absorbed insertion it stores the spatial kernel,
-the exact incoming and outgoing kernel ports, the incoming and outgoing
-flavors, the endpoint spin labels, and the independent spin tensors connecting
-those labels. Several POINT bilinear insertions can be retained in path order by
-the compiler representation. The deterministic propagation-resource identity
-therefore depends on whether the object is ordinary or generalized, the source
-and sink representations, the ordered sequence of segment flavors, and the
-canonical spatial and spin content of the insertions. It deliberately does not
-depend on a filename, HDF5 dataset name, source time, device, or execution
-strategy.
-
-This logical identity is separated from the occurrence at which the resource is
-used. During resource binding, each compiler propagation resource is mapped to
-one exact external tensor source. The occurrence placement then supplies the
-frontend source, insertion, and sink operator slots, and the run-time
-operator-time context converts those slots into concrete Euclidean times. Thus
-two uses of the same mathematical propagation resource can request different
-time slices without becoming different compiler resources. Conversely, the
-binding layer does not use a fallback such as ``look up a tensor by flavor'';
-ordinary and generalized resources are bound by their exact resource identity.
-
-External storage conventions are normalized only when a concrete propagation
-tensor is materialized. The canonical tensor expected by the contraction graph
-is ordered as sink mode/spin followed by source mode/spin. For a fixed-source
-file containing
-\(P_{\mathrm{file}}(t,t_0)\), a direct request with
-\(t_{\mathrm{src}}=t_0\) uses the stored orientation after the configured axis
-conversion. If instead \(t_{\mathrm{snk}}=t_0\), SymCorr reconstructs the
-reverse propagation using \(\gamma_5\)-Hermiticity,
-
-\begin{equation}
-P(t_0,t)
-=
-\gamma_5\,
-P_{\mathrm{file}}(t,t_0)^\dagger
-\,\gamma_5 .
+\tau(t_0,t)=\gamma_5\,\tau(t,t_0)^\dagger\,\gamma_5 ,
 \label{eq:fixed_source_reverse_propagation}
 \end{equation}
+where the adjoint acts on both mode and spin indices; a request in which neither time is the fixed
+source is rejected. Storage conventions of external files, such as a stored $\bar q\gamma_4$ source
+field, are converted once when the tensor is read. A closed quark loop is evaluated from
+perambulators with equal source and sink times, $\tau_f(t,t)$, connected through the kernels and spin
+matrices of the loop; this requires perambulators from all source times.
 
-The Hermitian adjoint exchanges both mode and spin source/sink spaces; a simple
-complex conjugation is not equivalent. If neither requested endpoint is the
-fixed source, that tensor cannot be obtained from the file and materialization
-fails rather than inventing missing propagation data.
+\subsection{Tensor network of a Wick term}
 
-The materialization adapter also owns external source-field and spin-basis
-conventions. In the validated QUDA-LapH input path, for example, a stored
-\texttt{qdagger} source convention is converted to SymCorr's canonical
-\(\langle q\bar q\rangle\) convention using the configured spin basis before
-the tensor reaches the generic numerical executor. Likewise, a reverse
-fixed-source transformation is applied in the adapter exactly once. The
-contraction executor therefore consumes the propagation tensor in the
-orientation requested by the compiler and does not apply an additional
-post-hoc conjugation or \(\gamma_5\) correction.
-
-Closed fermion cycles use a related but distinct lowering. For an exact LapH
-closed cycle, SymCorr does not request a separately stored disconnected-loop
-tensor. Instead, every Wick segment is represented by an ordinary perambulator
-and the successive operator-local spatial and spin tensors close the cyclic
-contraction. This route currently assumes ordinary all-time distillation
-perambulators for the required segments. A genuinely POINT disconnected loop
-cannot be reconstructed from those perambulators because they do not contain
-the full point-space all-to-all propagator; such a loop therefore requires
-additional stochastic, all-to-all, or precomputed-loop information and is
-rejected by the present exact-distillation lowering.
-
-The compiler and resource-binding layers can consequently represent ordinary
-perambulators, ordered generalized POINT-current resources, and exact-LapH
-closed-cycle propagation structure within one topology-driven framework. Their
-validation status is nevertheless different. The ordinary perambulator path is
-part of the external-data validation envelope described in
-Sec.~\ref{sec:overview}, whereas generalized propagation inputs and the broader
-closed-loop pathways should be regarded as implemented compiler/runtime
-capabilities unless a separate external numerical validation is stated later in
-this paper.
-
-\subsection{Construction of contraction tasks}
-
-Once the operator-dependent kernels, propagation requirements, and spin tensors
-have been identified, SymCorr converts each complete PhysicsIR Wick contribution
-into a primitive tensor-contraction graph. This graph is the first compiler
-representation in which the numerical contraction problem is explicit. It
-contains the tensors that must participate in the Wick term and the indices
-that connect them, but it still contains no decision about the order in which
-those tensors will be contracted.
-
-For a Wick term \(\alpha\), let \(T_{\alpha n}\) denote its primitive tensor
-occurrences and let \(I_{\alpha n}\) denote the ordered set of contraction
-indices attached to tensor \(n\). The graph represents the contribution
-schematically as
-
+Each Wick term $\alpha$ is converted into a tensor network of three kinds of tensors, the kernels,
+the perambulators and the spin matrices,
 \begin{equation}
 C_\alpha
 =
@@ -1518,232 +1014,47 @@ c_\alpha
 T_{\alpha n}(I_{\alpha n}),
 \label{eq:primitive_contraction_task}
 \end{equation}
-
-where \(c_\alpha\) is the coefficient already fixed in PhysicsIR. Indices that
-occur on two primitive tensor legs are summed internal indices. An index that
-occurs on only one leg remains a free output index, so the same graph
-representation can describe both scalar correlator terms and terms with an
-explicit open index. The graph validator rejects an index attached to more than
-two primitive legs rather than assigning an ambiguous multiway contraction
-meaning.
-
-The current primitive graph has only three tensor kinds: operator-dependent
-spatial kernels, propagation tensors, and spin tensors. A kernel node exposes
-one port for every surviving external spatial leg of its
-\texttt{KernelRecipe}. For a LapH kernel these ports become LapH-mode
-contraction indices. A spin node exposes its left and right spin indices. A
-propagation node connects the corresponding kernel and spin spaces using the
-canonical leg order
-
-\begin{equation}
-(\text{sink mode},\text{sink spin},
- \text{source mode},\text{source spin}).
-\label{eq:primitive_propagation_ports}
-\end{equation}
-
-The graph therefore records tensor connectivity explicitly rather than relying
-on a later numerical backend to infer contractions from array shape or node
-ordering.
-
-Fermion topology determines which propagation nodes are inserted. Along an open
-fermion path, POINT bilinear transitions that satisfy the generalized-resource
-requirements described above are absorbed into the corresponding propagation
-recipe. Their spatial kernel and spin tensors are then omitted as separate graph
-nodes so that the current is not counted twice. A non-absorbed transition must
-currently have LapH endpoints and remains explicit through its kernel and spin
-tensors. Similarly, a standalone POINT spatial kernel is not admitted to the
-current exact-distillation primitive graph; connected POINT bilinears must be
-realized through the supported generalized propagation route. Mixed POINT/LapH
-transitions that cannot be represented by these existing resources are rejected
-at this boundary rather than assigned a guessed tensor realization.
-
-Each primitive tensor occurrence carries two different identities. The
-\emph{node identity} distinguishes the occurrence inside this particular Wick
-term, while the \emph{resource identity} describes the reusable mathematical
-tensor that the occurrence requires. Two kernel occurrences, for example, may
-have the same spatial resource identity but different node identities because
-they occupy different places in the term. The primitive-graph stage
-intentionally preserves both occurrences. No deduplication is performed merely
-because their resource identifiers agree.
-
-This distinction is necessary because resource equality and tensor occurrence
-are different statements. A Wick term may use the same perambulator resource
-more than once, and those two uses must retain distinct contractions even though
-they may ultimately be materialized from the same external data source. The
-same applies to repeated spatial kernels and spin matrices. Occurrence-specific
-ports and index bindings therefore remain attached to each node until a later
-global analysis proves what can be reused without changing the contraction.
-
-The graph is validated before it is passed to optimization. Node identifiers
-must be unique, a tensor cannot expose the same local port twice, contraction
-indices cannot be empty, and no global index may have degree greater than two.
-A graph in which every index has degree two is a closed scalar contraction;
-degree-one indices define its external interface. These checks establish the
-well-formed numerical tensor network independently of any proposed contraction
-path.
-
-SymCorr constructs one such \texttt{WickContractionGraph} for every complete
-PhysicsIR Wick term. Equal primitive resources therefore remain visible across
-terms and across correlation-matrix elements, but they have not yet been
-combined. The next stage operates on this collection globally: it deduplicates
-exactly equal resource requirements, canonicalizes reusable connected tensor
-components, and aggregates exactly equal complete terms before contraction-order
-selection. Those operations belong to the execution and optimization framework
-in Sec.~\ref{sec:execution}; they are deliberately separated from the task
-construction described here.
-
-At the end of this subsection the physics lowering is complete. The compiler has
-fixed the coefficient, the required primitive tensor resources, and their exact
-index connectivity. It has not chosen pairwise contraction order, common
-intermediate expressions, execution schedule, memory buffers, hardware device,
-or numerical tensor values. Those remaining decisions can therefore optimize an
-already fixed tensor problem without modifying the physical correlator.
+where $c_\alpha$ contains the fermionic sign and the expansion weight, $T_{\alpha n}$ are the tensors
+and $I_{\alpha n}$ their indices. An index shared by two tensors is summed, and an index that occurs
+once remains open, as for the spin index of a baryon correlator. The network fixes which tensors are
+contracted with which, but not the order of the contractions; that is chosen globally in
+Sec.~\ref{sec:execution}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Execution and Optimization Framework}
+\section{Global Optimization and Execution}
 \label{sec:execution}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% This is intentionally later in the manuscript. By this point the reader
-% should already understand the physics objects being evaluated.
-
-\subsection{Backend-independent execution representation}
-
-The execution layer begins from the collection of primitive Wick-contraction
-graphs constructed in Sec.~\ref{sec:distillation_lowering}. Its first purpose is
-to turn those term-local tensor networks into one hardware-independent
-representation of the complete requested calculation. The representation is
-progressively refined through global exact reuse, contraction-order selection,
-partial-intermediate reuse, and finally an explicit logical dependency graph.
-At every one of these stages the compiler is still describing mathematical
-values and operations rather than a schedule for a particular CPU or GPU.
-
-The first global representation is a \texttt{GlobalComputationDAG}. Primitive
-resource requirements are identified by exact resource identity, while tensor
-occurrences retain their operator-slot placement. Connected pieces of the
-primitive tensor network are canonicalized independently of temporary node names
-and dummy contraction-index labels. One canonical component computation can
-therefore be referenced by several Wick terms or several correlation-matrix
-elements without treating occurrence-specific placement as part of the reusable
-resource itself. The requested correlators remain explicit as sums of Wick
-terms, so global reuse does not collapse distinct physical outputs.
-
-Each unique connected component is then assigned a backend-independent
-contraction plan. SymCorr presently delegates the algebraic path search to
-\texttt{opt\_einsum}, but stores the result in its own compiler representation.
-A plan is an ordered sequence of contraction or reduction steps; every step
-records its input values and interfaces, the indices eliminated at that step,
-the output interface, an estimated operation count, and the size of the
-resulting intermediate. This separates the mathematical contraction tree from
-the library used to discover it and leaves room for a different path optimizer
-without changing the surrounding compiler stages.
-
-Contraction-path search requires numerical dimensions in order to estimate
-cost. In the current exact-distillation model, LapH-mode indices have dimension
-\(N_v\) for the job and spin indices have dimension four. These dimensions are
-provided through a size model used for path selection,
-
+The tensor networks of all Wick terms and all elements of the requested correlation matrix are
+treated as one contraction problem. Identical tensors and identical networks are shared
+(Sec.~\ref{sec:reuse_repeated_structures}); a pairwise contraction order is chosen for every unique
+network, currently with \texttt{opt\_einsum}, using the index dimensions
 \begin{equation}
 |i|=
 \begin{cases}
 N_v, & i\in\text{LapH-mode space},\\
-4,   & i\in\text{Dirac-spin space}.
+4,   & i\in\text{Dirac-spin space};
 \end{cases}
 \label{eq:execution_index_size_model}
 \end{equation}
-
-They are optimization inputs rather than part of tensor-resource identity. A
-change in \(N_v\), or in the path-search strategy, can therefore change the
-chosen contraction order without changing the symbolic correlator or its
-primitive tensor connectivity.
-
-Once a contraction tree has been selected, SymCorr rewrites its intermediate
-values into a second global DAG. Primitive tensor values are distinguished by
-both reusable resource identity and exact logical placement, while contraction
-subtrees are canonicalized from their recursively defined inputs and interfaces.
-Temporary component step names and dummy local indices are excluded from this
-identity. As a result, two algebraically identical partial contractions can
-refer to the same logical intermediate even when they arose in different
-component plans. Importantly, this pass does not alter the contraction order
-that was already selected; it only recognizes identical values inside those
-frozen trees.
-
-The final compiler representation before scheduling is the
-\texttt{LogicalExecutionDAG}. It makes every remaining operation explicit. Its
-nodes fall into four classes:
-
-\begin{equation}
-\begin{aligned}
-v_r & = \operatorname{EvalPrimitive}(r;\pi),\\
-v_m & = \operatorname{Contract}(v_{a_1},\ldots,v_{a_k}),\\
-w_\alpha & = c_\alpha\prod_j v_{\alpha j},\\
-C_i & = \sum_{\alpha\in i} w_\alpha,
-\end{aligned}
-\label{eq:logical_execution_node_classes}
-\end{equation}
-
-where \(r\) is a primitive resource, \(\pi\) is its logical operator placement,
-\(v_m\) is one reusable contraction intermediate, \(w_\alpha\) is one Wick-term
-product, and \(C_i\) is one requested correlator output. Repeated uses of the
-same value remain distinct occurrences in an operation when multiplicity is
-part of the algebra, for example when the same disconnected scalar component
-appears twice in one Wick term.
-
-The logical DAG therefore answers a precise question: \emph{what values must be
-produced, and which earlier values does each operation depend on?} Primitive
-nodes have no dependencies; contraction nodes depend on their input values;
-Wick-term nodes multiply their component results by the already fixed
-coefficient; correlator-sum nodes depend on the contributing Wick terms. The
-output map identifies the final node corresponding to every requested
-correlator. Dependency cycles, missing values, incompatible value interfaces,
-and inconsistent Wick-term or correlator output indices are rejected by the
-logical-DAG validator.
-
-A backend-neutral static analysis can subsequently derive exact logical tensor
-metadata from this DAG. Mode and spin index spaces remain explicit even when
-they happen to have the same numerical dimension, and each value receives its
-logical shape, element count, scalar type, byte estimate, producer/consumer
-relationships, fanout, and distance to an output. This analysis still describes
-one logical value at one exact placement; time batching, data residency, file
-layout, and physical memory slots are deliberately absent.
-
-No representation described in this subsection is a physical execution plan.
-In particular, a topological ordering of the logical DAG merely demonstrates
-that its dependencies are acyclic; it is not the selected runtime schedule.
-Likewise, estimated FLOPs and intermediate sizes used during contraction-path
-search do not choose a device or allocate memory. Scheduling, lifetime-aware
-buffer reuse, time-context batching, staging, and hardware feasibility are
-introduced only by the later planning stages described below. This boundary
-allows those deployment choices to change while preserving the same optimized
-mathematical execution DAG.
+partial contractions that occur in several networks are computed once; and the resulting operations
+are scheduled together with a plan for the memory buffers (Sec.~\ref{sec:memory_execution}). All of
+this is fixed in the saved plan before any lattice data are read.
 
 \subsection{Reuse of repeated structures}
 \label{sec:reuse_repeated_structures}
 
-A central capability of the \textsc{SymCorr} framework is the identification and elimination of redundant computational work across an entire correlation matrix. Rather than treating each matrix element \(C_{ij}(t-t_0)\) and each contributing Wick term as an independent contraction program, \textsc{SymCorr} formulates the global calculation as a unified computation directed acyclic graph (\texttt{GlobalComputationDAG}). This subsection explains how Wick-contracted terms are represented as attributed graphs, the multi-tier identifier hierarchy used throughout the compiler, the graph-isomorphism algorithm that discovers topologically equivalent contractions, and how this optimization operates in practical hadron correlation matrices.
-
-\subsubsection{Graph representation of hadron contractions: The proton example}
-\label{sec:graph_rep_proton}
-
-To illustrate the graph formulation concretely, consider the rest-frame, positive-parity nucleon (proton) interpolating operator,
+As an example, consider the rest-frame, positive-parity proton operator
 \begin{equation}
 \mathcal O_N(t) = \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t),
 \label{eq:proton_interpolator_def}
 \end{equation}
-where \(C = \gamma_2\gamma_4\) is the charge-conjugation matrix, \(\epsilon_{abc}\) is the totally antisymmetric \(SU(3)\) color tensor, and \(P_+ = \frac{1}{2}(\mathbb I + \gamma_4)\) is the positive-parity energy projector. The corresponding Euclidean two-point correlation function is
-\begin{equation}
-C_{NN}(t, t_0) = \left\langle \mathcal O_N(t) \, \overline{\mathcal O}_N(t_0) \right\rangle,
-\label{eq:proton_correlator_def}
-\end{equation}
-where \(\overline{\mathcal O}_N(t_0) = \mathcal O_N(t_0)^\dagger \gamma_4\) denotes the adjoint source operator.
+with $P_+=\frac12(1+\gamma_4)$. Its two Wick terms, the direct and the exchange term with relative
+sign $-1$, are shown as tensor networks in Fig.~\ref{fig:proton_graphs_comparison}. Each network
+contains two baryon kernels, three perambulators and seven spin matrices; the two networks use the same
+kernels and perambulators and differ only in how the up-quark lines connect them.
 
-Because the proton contains two valence up quarks of identical flavor, Wick's theorem generates two distinct contraction terms (\(N_u! \times N_d! = 2! \times 1! = 2\)):
-\begin{enumerate}
-    \item \textbf{Direct term (\(\alpha=0\))}: with fermionic permutation sign \(c_0 = -1\), where up quark~1 at the source propagates into up quark~1 inside the sink diquark, while up quark~2 propagates as the spectator quark.
-    \item \textbf{Exchange term (\(\alpha=1\))}: with fermionic permutation sign \(c_1 = +1\), where the two up-quark lines cross: up quark~1 at the source propagates into the sink spectator, while up quark~2 propagates into the sink diquark.
-\end{enumerate}
-
-\begin{figure*}[t]
+\begin{figure*}[tp]
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
 \centering
@@ -1811,7 +1122,7 @@ Because the proton contains two valence up quarks of identical flavor, Wick's th
   \draw[spin_link] (0.0, 0.2)  to[out=180, in=0] (g_src.east);
 
 \end{tikzpicture}
-\caption{Direct contraction graph (\(\alpha=0\), sign \(-1\))}
+\caption{Direct term (sign \(+1\))}
 \label{fig:proton_graph_direct}
 \end{subfigure}
 \hfill
@@ -1886,56 +1197,26 @@ Because the proton contains two valence up quarks of identical flavor, Wick's th
   \draw[spin_link] (0.0, 0.15)  to[out=180, in=0] (x_g_src.east);
 
 \end{tikzpicture}
-\caption{Exchange contraction graph (\(\alpha=1\), sign \(+1\))}
+\caption{Exchange term (sign \(-1\))}
 \label{fig:proton_graph_exchange}
 \end{subfigure}
 \caption{Graph representations of the two proton Wick contraction topologies in \textsc{SymCorr}, following the convention of distillation hadron contraction networks~\cite{10.1145/3592979.3593409}. Blue and red solid directed lines represent up- and down-quark perambulator propagations (\(\tau_u, \tau_d\)) connecting source ports to sink ports. Dashed orange links represent Dirac spinor contractions with diquark matrices \(C\gamma_5\) and positive-parity energy projectors \(P_+\).}
 \label{fig:proton_graphs_comparison}
 \end{figure*}
 
-In \textsc{SymCorr}, each Wick term is converted into an explicit tensor network graph (\texttt{WickContractionGraph}), displayed schematically in Fig.~\ref{fig:proton_graphs_comparison}.
-\begin{itemize}
-    \item \textbf{Nodes}: Each graph contains 12 primitive tensor nodes:
-    \begin{itemize}
-        \item Two spatial baryon kernels (\texttt{kernel\_0} at the sink and \texttt{kernel\_1} at the source), each carrying three external LapH-mode ports: \(p_0, p_1, p_2\).
-        \item Three quark perambulators (\(\tau_u^{(1)}, \tau_d, \tau_u^{(2)}\)), each carrying four ports: sink mode, sink spin, source mode, and source spin.
-        \item Seven Dirac spin tensors representing the source/sink \(C\gamma_5\), \(P_+\), and spinor conjugation structures.
-    \end{itemize}
-    \item \textbf{Edges}: Edges correspond to contracted dummy indices (degree~2). A mode edge connects a perambulator mode port to a baryon kernel mode port. A spin edge connects a perambulator spin port to a Dirac matrix.
-\end{itemize}
-
-\subsubsection{Identifier taxonomy in the compiler}
-\label{sec:identifier_taxonomy}
-
-To manage data reuse, compilation, and execution without name clashes or ambiguous sharing, \textsc{SymCorr} maintains four strictly decoupled tiers of identifiers:
-\begin{enumerate}
-    \item \textbf{\texttt{correlator\_id}}: Identifies the high-level physical correlator requested by the user in the job declaration (e.g., \texttt{c\_proton} or \texttt{C\_0\_1}).
-    \item \textbf{\texttt{node\_id}}: A diagram-local occurrence identifier assigned to a specific tensor node within one un-optimized Wick graph (e.g., \texttt{kernel\_0}, \texttt{propagation\_1}, \texttt{spin\_3}).
-    \item \textbf{\texttt{resource\_id}}: A globally unique identifier for the underlying physical/numerical data source. It is generated from a deterministic SHA-256 hash of the mathematical specification (e.g., \texttt{spatial\_kernel\_}\allowbreak\texttt{6427fc17\dots} for the proton baryon block, or \texttt{perambulator\_}\allowbreak\texttt{cfa5757f\dots} for the up-quark perambulator). Importantly, Graph~0 and Graph~1 have distinct node occurrences, but share the exact same \texttt{resource\_id} values.
-    \item \textbf{\texttt{computation\_id}} (or \textbf{\texttt{component\_id}}): Identifies a unique, canonicalized, connected tensor contraction network (e.g., \texttt{component\_}\allowbreak\texttt{301a5cf4\dots} for Graph~0 and \texttt{component\_}\allowbreak\texttt{9b66414a\dots} for Graph~1). This identifier is invariant under dummy index renaming and node reordering.
-\end{enumerate}
-
-\subsubsection{Graph isomorphism: Identifying identical contractions through canonical labeling}
-\label{sec:isomorphism_strategy}
-
-Two contraction graphs may represent the exact same mathematical contraction, yet appear entirely distinct to a computer. This occurs for two simple reasons:
-\begin{enumerate}
-    \item \textbf{Dummy index naming}: Consider two mathematically identical contractions,
-    \begin{equation*}
-    \sum_\alpha \tau_{\alpha\beta} \, (C\gamma_5)_{\beta\alpha} \quad \Longleftrightarrow \quad \sum_\mu (C\gamma_5)_{\nu\mu} \, \tau_{\mu\nu}.
-    \end{equation*}
-    Although they compute the same tensor value, an automated parser sees different dummy labels (\(\alpha,\beta\) versus \(\mu,\nu\)).
-    \item \textbf{Arbitrary node order}: Tensors in memory can appear in any sequence (listing \(\tau\) before \(C\gamma_5\) or vice versa) without altering the physical contraction result.
-\end{enumerate}
-
-To recognize identical contractions across different correlators, \textsc{SymCorr} converts every contraction graph into a unique, standardized form---a process known as \emph{canonical labeling}.
-
-While generic graph isomorphism packages (such as the Boost Graph Library (BGL)~\cite{10.1145/3592979.3593409} or \texttt{nauty}) are tailored for massive abstract graphs with thousands of vertices, lattice QCD contraction graphs are compact, typically containing only $5$--$25$ tensor nodes. \textsc{SymCorr} therefore uses a lightweight, self-contained canonicalization strategy based on three intuitive steps:
-\begin{itemize}
-    \item \textbf{Step 1: Graph traversal and index standardization}: Starting from a chosen tensor, the compiler walks through the graph by following port connections in a fixed numerical port order (port~0, port~1, \ldots). As internal connections and open indices are encountered along the walk, they are renamed systematically to sequential canonical labels (\(i_0, i_1, i_2, \ldots\) for contracted internal indices and \(o_0, o_1, \ldots\) for open external indices).
-    \item \textbf{Step 2: Unbiased root selection}: Because a loop of contracted tensors has no natural ``first'' node, \textsc{SymCorr} tries starting the walk from every candidate tensor in the graph. Each choice of starting node produces a standardized candidate string describing the walk.
-    \item \textbf{Step 3: Deterministic tie-breaking (Lexicographical minimum)}: Among all candidate description strings generated across all possible starting nodes, the compiler deterministically selects the one that is alphabetically earliest (the lexicographical minimum).
-\end{itemize}
+The same tensor network appears with different node orders and index names in different terms and
+correlators. To recognize it, \textsc{SymCorr} assigns every connected network a canonical form
+(Algorithm~\ref{alg:canonical_graph_isomorphism}): starting from each tensor in turn, it walks the
+network by following the tensor ports in a fixed order, renames the contracted indices
+$i_0,i_1,\ldots$ and the open indices $o_0,o_1,\ldots$ in the order in which they are reached, and
+encodes the tensor kinds, resources and connections into a string. The lexicographically smallest
+string over all starting tensors is the canonical form, and its hash identifies the network. Two
+networks receive the same identifier exactly when they are identical up to the order of their tensors
+and the names of their contracted indices; the full string is compared whenever two hashes agree.
+Contraction graphs of hadron correlators are small, typically 5--25 tensors, so this exhaustive
+search is cheap and needs no external graph library. Identical complete terms within one correlator
+are combined, and terms whose coefficients cancel are removed before any contraction is scheduled.
+The reuse obtained for the systems studied in this work is quantified in Sec.~\ref{sec:performance}.
 
 \begin{algorithm}[H]
 \caption{Canonical Graph Isomorphism in \textsc{SymCorr}}
@@ -1959,260 +1240,79 @@ While generic graph isomorphism packages (such as the Boost Graph Library (BGL)~
 \end{algorithmic}
 \end{algorithm}
 
-Because this procedure exhaustively tests all starting tensors and deterministically selects the lexicographically minimal description, the resulting string \(S_{\mathrm{min}}\) and its hash \texttt{computation\_id} serve as a strict canonical fingerprint: \emph{two tensor contraction graphs are mathematically isomorphic if and only if their \texttt{computation\_id} hashes match.}
+\subsection{Memory planning and execution}
+\label{sec:memory_execution}
 
-Once graphs are fingerprinted in this way, the compiler tests for graph equivalence with a single \(O(1)\) hash lookup. If two graphs share the same \texttt{computation\_id}, the tensor contraction is scheduled and computed only once, and the result is reused wherever needed in the global correlation matrix.
-
-\subsubsection{Operator choices and explicit cross-correlator isomorphism}
-\label{sec:cross_correlator_isomorphism}
-
-Where does graph isomorphism provide practical computational reuse in realistic lattice QCD spectroscopy? Consider a $2 \times 2$ correlation matrix of spin-$1/2^+$ rest-frame nucleon interpolators constructed from two distinct diquark structures: a pseudoscalar diquark operator \(\mathcal O_1(t)\) and an axial-vector/temporal diquark operator \(\mathcal O_2(t)\),
-\begin{align}
-\mathcal O_1(t) &= \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t), \label{eq:op1_nucleon}\\
-\mathcal O_2(t) &= \epsilon_{abc} \left[ u^a(t)^\top C\gamma_4\gamma_5 d^b(t) \right] P_+ u^c(t). \label{eq:op2_nucleon}
-\end{align}
-The four matrix elements evaluated across the correlation matrix are
-\begin{equation}
-\mathbf C(t, t_0) = 
-\begin{pmatrix}
-C_{11}(t, t_0) & C_{12}(t, t_0) \\
-C_{21}(t, t_0) & C_{22}(t, t_0)
-\end{pmatrix},
-\label{eq:nucleon_2x2_matrix}
-\end{equation}
-where each correlator element is defined by \(C_{ij}(t, t_0) = \langle \mathcal O_i(t) \, \overline{\mathcal O}_j(t_0) \rangle\).
-
-Each of the four correlators contains two Wick terms, yielding a total of 8 raw contraction graphs across the matrix. When \textsc{SymCorr}'s global compiler pass (\texttt{build\_global\_cse}) analyzes this system, it uncovers multiple levels of exact algebraic reuse:
-
-\begin{figure*}[t]
-\centering
-\begin{tikzpicture}[>=latex, scale=0.92, every node/.style={transform shape}]
-  % Styles
-  \tikzset{
-    box_raw/.style={draw=blue!75!black, fill=blue!5, rounded corners=4pt, line width=0.85pt, inner sep=6pt, font=\small},
-    box_proc/.style={draw=orange!85!black, fill=orange!8, rounded corners=4pt, line width=0.85pt, inner sep=6pt, font=\small, align=center},
-    box_canon/.style={draw=teal!85!black, fill=teal!8, rounded corners=4pt, line width=0.95pt, inner sep=6pt, font=\small, align=center},
-    arrow_flow/.style={->, line width=1.1pt, draw=black!70}
-  }
-
-  % STAGE 1: Raw graphs
-  \node[box_raw, text width=4.6cm] (raw_c12) at (0, 1.8) {
-    \textbf{Correlator $C_{12}$ Direct Term}\\[3pt]
-    \footnotesize
-    $\bullet$ Local dummy indices: $\{k_a, k_b, k_c, s_\alpha, s_\beta\}$\\
-    $\bullet$ In-memory node order: $[\text{kernel}, \tau_u, \tau_d, C\gamma_5, \dots]$\\
-    $\bullet$ Initial hash: \texttt{unmatched}
-  };
-
-  \node[box_raw, text width=4.6cm] (raw_c21) at (0, -1.8) {
-    \textbf{Correlator $C_{21}$ Direct Term}\\[3pt]
-    \footnotesize
-    $\bullet$ Local dummy indices: $\{m_0, m_1, m_2, \mu, \nu\}$\\
-    $\bullet$ In-memory node order: $[\tau_d, C\gamma_5, \text{kernel}, \tau_u, \dots]$\\
-    $\bullet$ Initial hash: \texttt{unmatched}
-  };
-
-  % STAGE 2: Algorithm 1 Processing
-  \node[box_proc, text width=4.6cm] (proc) at (6.0, 0) {
-    \textbf{Algorithm 1: Canonicalization}\\[4pt]
-    \footnotesize
-    1. Test all 12 candidate roots $r \in \{0, \dots, 11\}$\\[2pt]
-    2. Deterministic DFS port walk\\[2pt]
-    3. Rename internal edges $\to \{i_0, i_1, \dots\}$\\[2pt]
-    4. Select minimum string $S_{\min} = \min(\mathcal{C})$
-  };
-
-  % STAGE 3: Canonical Component & Hash
-  \node[box_canon, text width=5.0cm] (canon) at (12.2, 0) {
-    \textbf{Canonical Component}\\[3pt]
-    \footnotesize
-    $\bullet$ Standard slots: $[t_0, t_1, t_2, \dots, t_{11}]$\\
-    $\bullet$ Standard edges: $[i_0, i_1, \dots, i_{14}]$\\[4pt]
-    \textbf{Canonical Hash:}\\[1pt]
-    \texttt{\bfseries component\_301a5cf4dae549910cb6}\\[4pt]
-    \textcolor{teal!80!black}{\textbf{Single Execution Plan ($O(1)$ Reuse)}}
-  };
-
-  % Flow arrows
-  \draw[arrow_flow] (raw_c12.east) to[out=0, in=150] (proc.north west);
-  \draw[arrow_flow] (raw_c21.east) to[out=0, in=210] (proc.south west);
-  \draw[arrow_flow] (proc.east) -- (canon.west);
-
-\end{tikzpicture}
-\caption{Workflow of canonical graph isomorphism across off-diagonal matrix elements. Raw contraction terms from \(C_{12}\) and \(C_{21}\) initially possess distinct dummy index labels and in-memory node orderings. Algorithm~\ref{alg:canonical_graph_isomorphism} traverses both graphs deterministically, re-indexing internal edges to \(\{i_0, i_1, \ldots\}\) and selecting the lexicographically minimal string \(S_{\mathrm{min}}\). This maps both terms to the exact same SHA-256 fingerprint (\texttt{component\_301a5cf4dae549910cb6}), ensuring that the tensor contraction is scheduled and evaluated only once.}
-\label{fig:canonicalization_workflow}
-\end{figure*}
-
-\begin{enumerate}
-    \item \textbf{Cross-Correlator Graph Isomorphism}:
-    Under Euclidean time-reversal and Hermiticity, the off-diagonal matrix elements satisfy the relation
-    \begin{equation}
-    C_{21}(t, t_0) = \gamma_4 \, C_{12}(t, t_0)^\dagger \, \gamma_4.
-    \end{equation}
-    At the level of primitive contraction graphs, the direct term of \(C_{12}\) (connecting \(\mathcal O_1\) at the sink to \(\overline{\mathcal O}_2\) at the source) and the direct term of \(C_{21}\) (connecting \(\mathcal O_2\) at the sink to \(\overline{\mathcal O}_1\) at the source) possess the identical spatial-color connectivity and conjugate spin-matrix pairings. 
-    
-    As illustrated in Fig.~\ref{fig:canonicalization_workflow}, the raw graphs initially carry completely distinct dummy index names (e.g., \(\{k_a, k_b, k_c\}\) in \(C_{12}\) versus \(\{m_0, m_1, m_2\}\) in \(C_{21}\)). During compilation, Algorithm~\ref{alg:canonical_graph_isomorphism} traverses both graphs along identical port sequences:
-    \begin{itemize}
-        \item Slot \(t_0\) (Sink Kernel): LapH modes \(\to (i_0, i_1, i_2)\).
-        \item Slot \(t_1\) (\(\tau_u^{(1)}\)): modes \(\to (i_0, i_4)\), spins \(\to (i_3, i_5)\).
-        \item Slot \(t_2\) (\(C\gamma_5\)): diquark spin indices \(\to (i_3, i_6)\).
-        \item Slot \(t_3\) (\(\tau_d\)): modes \(\to (i_1, i_7)\), spins \(\to (i_6, i_8)\).
-        \item Slot \(t_4\) (Source Kernel): LapH modes \(\to (i_9, i_7, i_4)\).
-    \end{itemize}
-    Both graphs yield the exact same winning descriptor string \(S_{\mathrm{min}}\) and the identical identifier \texttt{component\_}\allowbreak\texttt{301a5cf4\dots}. Consequently, the tensor contraction is scheduled and evaluated \emph{only once}; the second correlator merely reads the result from the shared resident memory buffer.
-    
-    In contrast, the exchange term of the nucleon correlator possesses crossed valence lines: slot \(t_4\) binds modes to \((i_4, i_7, i_9)\) (swapping diquark and spectator connections). This topological difference alters \(S_{\mathrm{min}}\) and produces a distinct identifier (\texttt{component\_}\allowbreak\texttt{9b66414a\dots}), instructing the compiler to schedule it as an independent numerical operation.
-    
-    \item \textbf{Global Resource Deduplication Across the Full Basis}:
-    Even when the contraction topologies differ between diagonal and off-diagonal elements (because \(\mathcal O_1\) contains \(\gamma_5\) while \(\mathcal O_2\) contains \(\gamma_4\gamma_5\)), all 8 Wick graphs share the exact same underlying spatial and propagation data:
-    \begin{itemize}
-        \item The spatial baryon kernels \(B(t)\) and \(B^\dagger(t_0)\) share the identical \texttt{resource\_id}: \texttt{spatial\_kernel\_6427\dots}.
-        \item The up and down perambulators share the identical \texttt{resource\_id}s: \texttt{perambulator\_cfa5\dots} and \texttt{perambulator\_b3fe\dots}.
-    \end{itemize}
-    Across the 8 Wick graphs of the $2 \times 2$ nucleon matrix, there are 96 raw tensor occurrences. \textsc{SymCorr}'s global CSE consolidates them into only 8 unique in-memory tensor resources, eliminating 88 redundant data loadings (a \textbf{91.7\% reduction} in tensor staging overhead).
-    
-    \item \textbf{Exact Algebraic Cancellation (Zero Pruning)}:
-    Within a single correlator sum, if two contributing terms possess identical canonical components but opposite coefficients (\(c_\alpha + c_\beta = 0\)), \textsc{SymCorr} sums the coefficients symbolically and prunes the entire term from the execution DAG, ensuring that zero FLOPs and zero buffer memory are expended on vanishing contributions.
-\end{enumerate}
-
-By combining fine-grained tensor network canonicalization with global DAG scheduling, \textsc{SymCorr} achieves the same graph-reduction benefits as specialized C++ packages such as Redstar, while maintaining a transparent, Python-driven compiler architecture with zero external graph-library dependencies.
-
-
-\subsection{Memory and time-slice planning}
-
-% Discuss tiling, staging, time batching and lifetime-aware memory decisions.
-% Explain first what is being batched/tiled physically.
-
-\subsection{Hardware-aware execution planning}
-
-% Explain how hardware information influences execution choices without
-% presenting device-specific tuning as part of the physics interface.
-
-\subsection{Numerical execution}
-
-% Explain how the finalized plan is evaluated on CPU/GPU and how results are
-% assembled into correlators/correlation matrices.
+The scheduled operations define the lifetime of every intermediate tensor. A tensor is released after
+its last use, and tensors with non-overlapping lifetimes share the same buffer, so that the peak
+memory of a calculation is known from the plan before it runs. At run time, \textsc{SymCorr} checks
+this requirement against the memory of the requested device, a CPU or a single GPU, or selects one
+automatically; if a GPU cannot hold the complete working set, the LapH-mode indices are tiled and the
+data stay in host memory.
+Independent source--sink time pairs of one gauge configuration are evaluated together with an
+additional batch index whenever memory allows. Results are written incrementally to an HDF5 file, and
+a work unit is marked complete only after its values have been written, so that an interrupted run
+continues with the unfinished work units. Further runtime optimizations, such as prefetching
+perambulator data and caching repeated kernels, do not change the plan or the numerical results.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Validation and Correctness}
+\section{Validation}
 \label{sec:validation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% This should be a major section in a software paper. Distinguish verification
-% of algebra from numerical agreement and from performance testing.
-
-\subsection{Validation strategy}
-
-% Explain the hierarchy of unit, regression, numerical and end-to-end tests.
-
-\subsection{Symbolic and Wick-contraction tests}
-
-% Test flavor matching, signs, normalization, simplification and boundary cases.
-
-\subsection{Numerical correlator validation}
-
-% Present validated systems one by one.
-% Candidate subsections/cases: mesons, baryons, tetraquarks and other systems
-% only when a trusted reference calculation is available.
-
-\subsection{End-to-end and regression testing}
-
-% Explain equivalence tests, resume behavior, time batching equivalence,
-% CPU/GPU consistency where available, and the role of regression tests.
+% Planned content (about 1.5 pages): one summary table and short text, in three tiers:
+% (i) agreement with Chroma: single mesons (rest and moving frames), bilocal two-hadron channels,
+%     derivative/transport pions and the spectator-displaced proton (Chroma-LapH elementals,
+%     requalified 2026-10-16 after the source-adjoint correction);
+% (ii) independent NumPy contractions: closed loops, p pi+, I=1/2 N pi, N sigma, N pi pi, Delta++;
+% (iii) exact identities on real data: Delta+ = Delta++, Lambda = p, NN (I=1) and the vanishing
+%     Pauli-forbidden I=0 1S0 channel. One sentence on the regression test suite.
+% Sources: Symcorr docs/validation.md; symcorr_paper_work/{g1_cfg,g2,g7}/REPORT.md.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Worked Examples}
+\section{Application Example}
 \label{sec:examples}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Use a small number of examples that illustrate increasing complexity.
-% Each example should show input operator -> generated structure -> numerical
-% result, rather than merely listing package syntax.
-
-\subsection{Meson correlator}
-
-% First and simplest worked example.
-
-\subsection{Baryon correlator}
-
-% Demonstrate multiple quark fields and non-trivial Wick structure.
-
-\subsection{Multi-hadron or tetraquark example}
-
-% Include only after the corresponding pathway is fully validated.
+% Planned content (about 1 page): one complete input (operators.py, job.yaml, the plan/run
+% commands) and one physics figure from the 798-configuration A653-equivalent ensemble
+% (24^3 x 64), e.g. nucleon and Delta effective masses or a small GEVP, compared with published
+% A653 values.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Performance Evaluation}
+\section{Performance}
 \label{sec:performance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Do not write performance claims until controlled benchmarks are available.
-
-\subsection{Benchmark setup}
-
-% Hardware, software versions, precision, operator basis, N_v, time slices,
-% data placement and other parameters required to reproduce each benchmark.
-
-\subsection{Compilation and planning overhead}
-
-% Measure symbolic/compilation cost separately from numerical execution.
-
-\subsection{Runtime performance}
-
-% Compare meaningful execution paths/reference implementations.
-
-\subsection{Memory use}
-
-% Quantify memory reductions or overhead only from measured data.
-
-\subsection{Scaling}
-
-% Candidate axes: operator-basis size, number of sink times, N_v, CPU/GPU,
-% and eventually multiple devices if supported and tested.
+% Planned content (about 1.5 pages): one table for pi, N, Delta, pi pi, N pi and NN with Wick
+% terms, unique networks and intermediates, FLOPs saved by reuse, planned peak memory and measured
+% time per configuration on CPU and on an H100; one figure of time against N_v; one line on the
+% infeasibility of local six-quark operators. Hardware and software versions in the table caption.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Software Availability and Reproducibility}
+\section{Software Availability}
 \label{sec:software}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Package and dependencies}
-
-% Repository, license, supported Python/toolchain versions and core dependencies
-% once these are stable for release.
-
-\subsection{User workflow}
-
-% Briefly describe how an operator/correlator calculation is specified and run.
-% Detailed user documentation should remain outside the paper.
-
-\subsection{Reproducibility of the results in this work}
-
-% Identify version/tag/commit, example inputs, benchmark scripts and test data
-% needed to reproduce the validation and performance results in the paper.
+% Planned content: repository, license, version tag, installation, the plan/inspect/run commands,
+% and the scripts that reproduce the tables and figures of this paper.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Limitations and Future Development}
+\section{Limitations and Outlook}
 \label{sec:limitations}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% State current limitations explicitly.
-% Keep a clear distinction between:
-% - implemented and validated functionality;
-% - implemented but still experimental functionality;
-% - planned future work.
-% Possible future topics may include additional operator families,
-% generalized propagation inputs, multi-GPU/distributed execution and further
-% optimization passes, but only if they remain relevant at submission.
+% Planned content (short list): single device (no multi-GPU or MPI); temporal derivatives and
+% transports not implemented; generalized perambulators and point-current three-point functions
+% implemented but not validated; loops beyond the validated local cases; explicit gauge-link tensors
+% not executable; local multi-baryon operators infeasible with the present contraction strategy.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Conclusions}
 \label{sec:conclusions}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Summarize the demonstrated contribution of SymCorr rather than the intended
-% final scope of the project.
-% State what was automated, what was validated, and what quantitative benefit
-% was established by the final benchmarks.
+% Planned content: what is automated, what is validated, and the measured benefit.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Optional appendices
