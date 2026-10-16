@@ -731,6 +731,8 @@ one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-L
 \label{sec:wick}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+The correlators defined in Sec.~\ref{sec:symbolic} enter the first step of the compile stage in
+Fig.~\ref{fig:symcorr_workflow}, which turns each of them into a sum of quark-line contractions.
 Wick contraction is applied to basis correlators. A correlator containing linear combinations of
 operators is first expanded into weighted basis correlators, and the weights multiply the
 resulting terms; identical basis correlators are contracted only once.
@@ -754,7 +756,8 @@ slice may be contracted, which produces equal-time lines and closed quark loops
 
 \subsection{Fermionic signs}
 
-The relative sign of a Wick term is fixed by the ordering of the fermion fields in the correlator.
+The relative sign of a Wick term is fixed by the ordering of the fermion fields in the correlator;
+spin matrices, color tensors and field operations do not affect it.
 For the ordered fields $F=(f_1,\ldots,f_{2N})$ and one complete pairing
 $\mathcal P=\{(q_{i_1},\bar q_{j_1}),\ldots,(q_{i_N},\bar q_{j_N})\}$, \textsc{SymCorr} forms the
 sequence $F_{\mathcal P}=(q_{i_1},\bar q_{j_1},\ldots,q_{i_N},\bar q_{j_N})$ and assigns
@@ -791,7 +794,8 @@ shown in Fig.~\ref{fig:topologies}, and Table~\ref{tab:topology_counts} lists th
 terms that \textsc{SymCorr} generates for representative operators, separated into terms whose
 quark lines all connect source and sink, terms that contain equal-time lines, and disconnected
 terms with closed loops. The relative signs and the subsequent tensor-network construction follow
-from the same rules for all of them.
+from the same rules for all of them. With this step the pairings, signs and coefficients are fixed;
+the following stages only decide how the resulting terms are evaluated.
 
 \begin{figure*}[tp]
 \centering
@@ -938,11 +942,14 @@ After Wick contraction every term is a product of quark propagators and of the s
 spatial structures of the operators. In distillation, the propagators are replaced by perambulators
 and the operator structure on each time slice by spatial kernels built from the Laplacian
 eigenvectors. \textsc{SymCorr} derives both from the explicit index connectivity of the operators,
-without a library of meson, baryon or tetraquark shapes.
+without a library of meson, baryon or tetraquark shapes. This second compile step
+(Fig.~\ref{fig:symcorr_workflow}) is specific to distillation but still independent of the lattice
+data: it determines which kernels and perambulators are needed, not their values.
 
 \subsection{Operator kernels}
 
-A smeared quark field contributes $V$ and a smeared antiquark field $V^\dagger$. The fields of one
+With the smearing of Sec.~\ref{sec:background}, a quark field contributes $V$ and an antiquark
+field $V^\dagger$. The fields of one
 time slice are grouped into components that are connected by shared positions, color indices or
 color tensors; each component becomes one spatial kernel. For a component $A$ with positions
 $\mathbf x_r$, momenta $\mathbf p_r$ and external LapH-mode indices $k_i$,
@@ -1001,6 +1008,17 @@ field, are converted once when the tensor is read. A closed quark loop is evalua
 perambulators with equal source and sink times, $\tau_f(t,t)$, connected through the kernels and spin
 matrices of the loop; this requires perambulators from all source times.
 
+An open quark line may also pass through a local current at an intermediate time, as in a
+three-point function. If the fields of the current are written in point representation, the line
+becomes a generalized perambulator $\mathcal T^{J}_{f_0\to f_1}(t_2,t_1,t_0)$, which also allows a
+change of flavor at the current and is supplied by the user's data provider. This path is
+implemented but has not yet been validated against external data (Sec.~\ref{sec:limitations}).
+
+Kernels and perambulators refer to the operator insertions of the correlator (sink, source and any
+current), not to numerical times. The source and sink times, like the gauge configurations, are
+listed in the job specification and attached only at run time, so that one compiled plan serves the
+complete grid of times and configurations.
+
 \subsection{Tensor network of a Wick term}
 
 Each Wick term $\alpha$ is converted into a tensor network of three kinds of tensors, the kernels,
@@ -1026,9 +1044,10 @@ Sec.~\ref{sec:execution}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 The tensor networks of all Wick terms and all elements of the requested correlation matrix are
-treated as one contraction problem. Identical tensors and identical networks are shared
-(Sec.~\ref{sec:reuse_repeated_structures}); a pairwise contraction order is chosen for every unique
-network, currently with \texttt{opt\_einsum}, using the index dimensions
+treated as one contraction problem, which is optimized in four steps: (i)~identical tensors and
+identical networks are shared (Sec.~\ref{sec:reuse_repeated_structures}); (ii)~a pairwise
+contraction order is chosen for every distinct network, currently with \texttt{opt\_einsum}, using
+the index dimensions
 \begin{equation}
 |i|=
 \begin{cases}
@@ -1037,9 +1056,12 @@ N_v, & i\in\text{LapH-mode space},\\
 \end{cases}
 \label{eq:execution_index_size_model}
 \end{equation}
-partial contractions that occur in several networks are computed once; and the resulting operations
-are scheduled together with a plan for the memory buffers (Sec.~\ref{sec:memory_execution}). All of
-this is fixed in the saved plan before any lattice data are read.
+(iii)~partial contractions that occur in several networks are computed once; and (iv)~the
+operations are scheduled together with a plan for the memory buffers
+(Sec.~\ref{sec:memory_execution}). These are the last two steps of the compile stage in
+Fig.~\ref{fig:symcorr_workflow}. Everything is fixed in the saved plan before any lattice data are
+read, and the plan records the estimated operation count and peak memory, which can be inspected
+before a calculation is started.
 
 \subsection{Reuse of repeated structures}
 \label{sec:reuse_repeated_structures}
@@ -1216,7 +1238,17 @@ and the names of their contracted indices; the full string is compared whenever 
 Contraction graphs of hadron correlators are small, typically 5--25 tensors, so this exhaustive
 search is cheap and needs no external graph library. Identical complete terms within one correlator
 are combined, and terms whose coefficients cancel are removed before any contraction is scheduled.
-The reuse obtained for the systems studied in this work is quantified in Sec.~\ref{sec:performance}.
+
+Reuse occurs at three levels. Tensors are shared across all terms and matrix elements: for a
+$2\times2$ nucleon correlation matrix built from the operator of Eq.~\eqref{eq:proton_interpolator_def}
+and its analogue with the diquark matrix $C\gamma_4$, the eight Wick terms contain 96 tensors but only
+11 distinct ones (two kernels, the $u$ and $d$ perambulators and seven spin matrices). Identical
+networks are evaluated once; in this example all eight networks differ, because the diquark
+matrices differ. Finally, partial contractions are shared between different networks: for the
+two-nucleon correlator of Table~\ref{tab:topology_counts} at $N_v=64$, the contraction trees of the 48
+Wick terms contain 1008 partial contractions, of which 260 are distinct, which removes about one
+third of the floating-point operations. The reuse for the systems studied in this work is
+quantified in Sec.~\ref{sec:performance}.
 
 \begin{algorithm}[H]
 \caption{Canonical Graph Isomorphism in \textsc{SymCorr}}
@@ -1245,7 +1277,8 @@ The reuse obtained for the systems studied in this work is quantified in Sec.~\r
 
 The scheduled operations define the lifetime of every intermediate tensor. A tensor is released after
 its last use, and tensors with non-overlapping lifetimes share the same buffer, so that the peak
-memory of a calculation is known from the plan before it runs. At run time, \textsc{SymCorr} checks
+memory of a calculation is known from the plan before it runs. At run time (lower part of
+Fig.~\ref{fig:symcorr_workflow}), \textsc{SymCorr} checks
 this requirement against the memory of the requested device, a CPU or a single GPU, or selects one
 automatically; if a GPU cannot hold the complete working set, the LapH-mode indices are tiled and the
 data stay in host memory.
