@@ -11,6 +11,7 @@
 \usepackage{algpseudocode}
 \usepackage{hyperref}
 \usepackage{tikz}
+\usetikzlibrary{arrows.meta}
 \usepackage{subcaption}
 \usepackage{verbatim}
 
@@ -106,39 +107,77 @@ associated numerical coefficient and the fermionic sign.
 
 The \textsc{SymCorr} package is designed to separate the physical definition and representation of correlation measurements from the details of their numerical evaluation. The user-provided interpolators determine the Wick contractions and their representation in the distillation space, as illustrated schematically in Eq.~\ref{eq:distillation_contraction_schematic}, while the subsequent numerical procedures, including tensor contractions, redundancy optimizations to avoid repetitive evaluations, memory (de)allocation, and data reuse, are handled by the \textsc{SymCorr} backend. The physics-level description of the measurements are preserved at every stage of the \textsc{SymCorr} flowchart to facilitate user-end as well as backend verifications and troubleshooting, while the numerical tensor objects and operations remain blind to the physics that is aimed at. The correlation matrix evaluation is treated within the \textsc{SymCorr} package as a single structured computational problem,  instead of compiling every matrix element as an independent numerical program. This helps in identifying similar algebraic expressions as well as redundant mathematical work across the full calculation and thus providing efficient choices for tensor contraction ordering and data reuse, enabling an optimized workflow. Following the optimization aprogram t the algebraic as well numerical level, \textsc{SymCorr} also makes educated decisions at the execution stage in regrouping calculations to utilize the provided the hardware resources to its maximum potential. All optimizations, at the algebraic, numerical, and execution stages, are handled by the \textsc{SymCorr} backend while preserving the underlying physics information. This shields non-expert users from the complexities of optimization, while still giving expert users full freedom to inspect the practical implementation and numerical performance. 
 
-\begin{figure*}[tbh!]
+\begin{figure}[tbh!]
 \centering
-\begin{tikzpicture}
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (symbolic) at (0,0)
-        {Symbolic operators and correlators};
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (wick) at (0,-1.35)
-        {Automatic Wick contraction};
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (physics) at (0,-2.70)
-        {Physics representation and distillation lowering};
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (planning) at (0,-4.05)
-        {Global contraction and execution planning};
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (runtime) at (0,-5.40)
-        {Runtime data binding and numerical execution};
-  \node[draw, rounded corners, align=center,
-        minimum width=7.2cm, minimum height=0.8cm] (output) at (0,-6.75)
-        {Correlation-function output};
+\resizebox{\columnwidth}{!}{%
+\begin{tikzpicture}[
+    font=\small,
+    stage/.style={draw, rounded corners=2pt, align=center, text width=#1,
+                  inner sep=3.5pt, minimum height=0.85cm, fill=white},
+    stage/.default=6.3cm,
+    io/.style={draw, align=center, inner sep=3.5pt, minimum height=0.8cm, fill=black!7},
+    arr/.style={-{Latex[length=2mm]}, thick},
+    frame/.style={draw=black!50, dashed, rounded corners=5pt},
+    side/.style={rotate=90, font=\footnotesize\itshape, text=black!75},
+  ]
+  % user input
+  \node[io, text width=6.3cm] (in) at (0,0)
+    {Interpolating operators (Python) and job specification (YAML)};
 
-  \draw[->, thick] (symbolic) -- (wick);
-  \draw[->, thick] (wick) -- (physics);
-  \draw[->, thick] (physics) -- (planning);
-  \draw[->, thick] (planning) -- (runtime);
-  \draw[->, thick] (runtime) -- (output);
-\end{tikzpicture}
-\caption{\textsc{SymCorr} flowchart. PLEASE TRY TO PLACE IT WITHIN THE DRAFT AS A SINGLE COLUMN.}
+  % compile stage: depends only on the symbolic input and compile settings
+  \node[stage] (c1) at (0,-1.45)
+    {Expansion of operator combinations;\\ exact Wick contraction (pairings, signs)};
+  \node[stage] (c2) at (0,-2.65)
+    {Distillation lowering: spatial kernels,\\ propagation resources, spin tensors};
+  \node[stage] (c3) at (0,-3.85)
+    {Global tensor network: shared resources,\\ canonical components, term aggregation};
+  \node[stage] (c4) at (0,-5.05)
+    {Contraction order, shared intermediates,\\ schedule and buffer plan};
+  \draw[frame] (-3.5,-0.80) rectangle (3.5,-5.65);
+  \node[side] at (-3.8,-3.225) {compile: \texttt{symcorr plan}};
+
+  % frozen plan and external data
+  \node[io, text width=2.8cm] (plan) at (-1.85,-6.40)
+    {Portable plan\\ (\texttt{.symcorr})};
+  \node[io, text width=2.8cm] (data) at (1.95,-6.40)
+    {Lattice data:\\ $V(t)$, $\tau_f(t,t_0)$,\\ configuration $U$};
+
+  % run stage: per machine and data set
+  \node[stage=4.6cm] (r1) at (-1.05,-7.85)
+    {Plan validation; device choice\\ and time batching};
+  \node[stage=4.6cm] (r2) at (-1.05,-9.05)
+    {Data binding; kernels and\\ propagators materialized};
+  \node[stage=4.6cm] (r3) at (-1.05,-10.25)
+    {Execution of the frozen plan for\\ each configuration and time};
+  \draw[frame] (-3.5,-7.20) rectangle (3.5,-10.85);
+  \node[side] at (-3.8,-9.025) {run: \texttt{symcorr run}};
+
+  \node[io, text width=6.3cm] (out) at (0,-11.60)
+    {Correlation functions (HDF5);\\ optional run record and report};
+
+  % arrows
+  \draw[arr] (in) -- (c1);
+  \draw[arr] (c1) -- (c2);
+  \draw[arr] (c2) -- (c3);
+  \draw[arr] (c3) -- (c4);
+  \draw[arr] (c4.south -| plan.north) -- (plan.north);
+  \draw[arr] (plan.south) -- (plan.south |- r1.north);
+  \draw[arr] (data.south) -- (data.south |- r2.east) -- (r2.east);
+  \draw[arr] (r1) -- (r2);
+  \draw[arr] (r2) -- (r3);
+  \draw[arr] (r3.south) -- (r3.south |- out.north);
+\end{tikzpicture}%
+}
+\caption{\textsc{SymCorr} workflow. The compile stage depends only on the symbolic
+operators and the compile settings and produces a portable, hardware-independent plan.
+Lattice data (Laplacian eigenvectors $V(t)$, perambulators $\tau_f(t,t_0)$ and, for
+derivative or displaced operators, the gauge configuration $U$, read as the
+stout-smeared spatial links used for the Laplacian eigenvectors) and the available
+hardware enter only at run time.}
 \label{fig:symcorr_workflow}
-\end{figure*}
+\end{figure}
 
-We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. In the first stage, the user is expected to provide interpolator basis, for which the correlation matrices would be build, in the symbolic form, which will be discussed in the next section. In the second stage, all the quark line pairings also referred to as Wick contractions, the associated fermionic permutation signs, and contraction coefficients are generated for each of the correlation matrix elements. The Wick contracted mathematical expressions are reduced to the distillation framework and then translated into a physics independent backend tensor network problem in the third stage. Once the tensor network problem is defined, the redundant contrations, reusable resources, similarity in matrix elements, etc. are identified and utilized in optimization program treating the correlation matrix evaluation as a global contration program. Following the algebraic as well as numerical optimizations, the required lattice data such as the lattice configuration $\{U_{\mu}(\mathbf{x},t)\}$, the Laplacian eigenvectors $\{v^{(i)}(t)\}$, and the perambulators $\tau_f(t,t_0)$ are read in and utilized in building the necessary primitive tensors. Deployment decisions such as a feasible CPU or GPU execution mode and memory-compatible batching are made based on the accessible/provided resources. The optimized tensor contraction operations are then performed to produce the requested complex correlation matrices. 
+We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. The user provides the interpolator basis in symbolic form (Sec.~\ref{sec:symbolic}) together with a job specification that fixes the lattice dimensions, the number of distillation modes, the spin basis, the data locations, and the source and sink times. The calculation then proceeds in two stages. The compile stage uses only the symbolic operators and the compile settings. Linear combinations of operators are expanded into basis correlators, and all quark-line pairings (Wick contractions), their fermionic signs, and their coefficients are generated for every element of the correlation matrix (Sec.~\ref{sec:wick}). The resulting expressions are lowered to the distillation framework, where each Wick term becomes a tensor network of operator-dependent spatial kernels, propagation (perambulator) resources, and spin tensors (Sec.~\ref{sec:distillation_lowering}). All tensor networks of the requested correlation matrix are then treated as one global contraction problem: identical resources and identical contraction networks are shared across Wick terms and matrix elements, exactly equal terms are combined, a contraction order is chosen, shared intermediates are identified, and the operations are scheduled together with a plan for reusing memory buffers (Sec.~\ref{sec:execution}). The result is saved as a portable plan that depends neither on lattice data nor on hardware. In the run stage, the saved plan is first checked against the current operator definitions and job specification. \textsc{SymCorr} then chooses a CPU or GPU deployment and a memory-compatible batching of time slices for the available hardware, reads the Laplacian eigenvectors $\{v^{(i)}(t)\}$, the perambulators $\tau_f(t,t_0)$ and, for derivative or displaced operators, the gauge configuration in the form of the stout-smeared spatial links used to construct the eigenvectors, builds the required kernels and propagation tensors, and executes the frozen plan for every gauge configuration and time context. The correlation functions are written to an HDF5 file; a record of the run and a human-readable report can be produced on request. 
 
 Now we present the scope of the \textsc{SymCorr} package. The present implementation can serve in optimized distillation-based correlation matrix evaluations and works on both CPU as well as GPU resources. The package assumes externally supplied operator basis, lattice QCD configuration, associated Laplacian eigenvectors, and the quark perambulators. Operator constructions such as those dealt by packages (MHI) and \texttt{OpTion} supplied n Ref. \cite{PhysRevD.109.094516,Yan:2025op}, generation of the lattice QCD configurations \cite{openQCD, MILC} and evaluation of Laplacian eigenvectors, and perambulators \cite{quada_laph} are outside \textsc{SymCorr}'s scope. The package can inspect the available resources such as CPUs, GPUs, memory, and can make educated decisions on efficient execution, however it does not support multi-GPU and MPI based multi-CPU evaluations, which is a straightforward extension. These are limited execution boundaries rather than restrictions on the symbolic definition of the correlator.
 
