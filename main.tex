@@ -11,7 +11,7 @@
 \usepackage{algpseudocode}
 \usepackage{hyperref}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta}
+\usetikzlibrary{arrows.meta,decorations.markings,shapes.geometric}
 \usepackage{subcaption}
 \usepackage{verbatim}
 
@@ -608,6 +608,117 @@ structure, and momentum information. The automatic Wick-contraction stage is
 therefore the first point at which their substantially different propagation
 structures emerge.
 
+Derivative and displaced operators are written by applying \texttt{derivative}, \texttt{transport} or
+\texttt{shift} to the field on which the operation acts. Fig.~\ref{fig:displaced_operators} shows the
+three constructions used in the validation of Sec.~\ref{sec:validation}, together with the operators
+they define. The lattice operations follow the conventions
+\begin{equation}
+T_{+i}\psi(x)=U_i(x)\,\psi(x+\hat\imath),\qquad
+T_{-i}\psi(x)=U_i^\dagger(x-\hat\imath)\,\psi(x-\hat\imath),\qquad
+\nabla_i=\tfrac12\left(T_{+i}-T_{-i}\right),
+\label{eq:transport_conventions}
+\end{equation}
+with periodic spatial boundaries and no lattice-spacing factor, where $U_i$ are the stout-smeared
+spatial links of the gauge configuration that also define the Laplacian eigenvectors. A path is
+listed from the field position towards the displaced endpoint, so that
+$T_{(+x,+y)}\psi(x)=U_x(x)\,U_y(x+\hat x)\,\psi(x+\hat x+\hat y)$. The source operators are obtained
+with \texttt{dagger()}, which keeps the operation chain on the conjugated field.
+
+\begin{figure*}[t]
+\centering
+\tikzset{
+  site/.style={circle, draw, fill=white, inner sep=1.4pt},
+  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
+  link/.style={very thick, -{Latex[length=1.8mm]}},
+  lbl/.style={font=\scriptsize},
+}
+\begin{minipage}[t]{0.32\textwidth}
+\footnotesize
+\begin{verbatim}
+pion_dx = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * derivative(
+        u("x", "a", "beta"), "+x"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\vspace{-2mm}
+\[
+\mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,(\nabla_x u)(x)
+\]
+\centering
+\begin{tikzpicture}
+  \draw[black!35] (-1.6,0) -- (1.6,0);
+  \node[qsite] (m) at (-1.2,0) {}; \node[site] (o) at (0,0) {}; \node[qsite] (p) at (1.2,0) {};
+  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
+  \draw[link] (o) -- node[lbl, above] {$U_x^\dagger(x-\hat x)$} (m);
+  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+  \node[lbl, below=2pt] at (p) {$+\tfrac12\,u$};
+  \node[lbl, below=2pt] at (m) {$-\tfrac12\,u$};
+\end{tikzpicture}
+\par\smallskip (a) derivative $\nabla_x$
+\end{minipage}\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\footnotesize
+\begin{verbatim}
+pion_txy = Operator(
+    dbar("x", "a", "alpha")
+    * gamma5("alpha", "beta")
+    * transport(
+        u("x", "a", "beta"), "+x", "+y"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\vspace{-2mm}
+\[
+\mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,U_x(x)U_y(x{+}\hat x)\,u(x{+}\hat x{+}\hat y)
+\]
+\centering
+\begin{tikzpicture}
+  \node[site] (o) at (0,0) {}; \node[site] (r) at (1.3,0) {}; \node[qsite] (ru) at (1.3,1.0) {};
+  \draw[link] (o) -- node[lbl, below] {$U_x(x)$} (r);
+  \draw[link] (r) -- node[lbl, right] {$U_y(x{+}\hat x)$} (ru);
+  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+  \node[lbl, left=2pt] at (ru) {$u(x{+}\hat x{+}\hat y)$};
+\end{tikzpicture}
+\par\smallskip (b) ordered path $(+x,+y)$
+\end{minipage}\hfill
+\begin{minipage}[t]{0.32\textwidth}
+\footnotesize
+\begin{verbatim}
+proton_tx = Operator(
+    epsilon("a", "b", "c")
+    * spin_matrix("Cg5", "alpha", "beta")
+    * u("x", "a", "alpha")
+    * d("x", "b", "beta")
+    * transport(u("x", "c", "delta"), "+x"),
+    momentum=(0, 0, 0),
+)
+\end{verbatim}
+\vspace{-2mm}
+\[
+\mathcal O_\delta(t)=\sum_{\mathbf x}\epsilon_{abc}\,(u_a^\top C\gamma_5 d_b)(x)\,
+\big[U_x(x)\,u(x{+}\hat x)\big]_{c\delta}
+\]
+\centering
+\begin{tikzpicture}
+  \node[site, minimum size=9pt] (o) at (0,0) {}; \node[qsite] (p) at (1.3,0) {};
+  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
+  \node[lbl, below=2pt] at (o) {$(u^\top C\gamma_5 d)(x)$};
+  \node[lbl, below=2pt] at (p) {$u(x{+}\hat x)$};
+\end{tikzpicture}
+\par\smallskip (c) spectator-displaced proton
+\end{minipage}
+\caption{Derivative and displaced operators in the \textsc{SymCorr} language (top), the operators
+they define (middle), and the lattice structure (bottom; open circles mark the position $x$ of the
+undisplaced fields, filled circles the displaced quark, arrows the gauge links in the order of the
+path). The conventions are those of Eq.~\eqref{eq:transport_conventions}; $U$ are the stout-smeared
+links of the gauge configuration. These three channels, together with the pion operators with $\nabla_y$, $\nabla_z$ and the
+one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-LapH in Sec.~\ref{sec:validation}.}
+\label{fig:displaced_operators}
+\end{figure*}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Automatic Wick Contraction}
 \label{sec:wick}
@@ -910,6 +1021,151 @@ symbolic operator structures that accompany those propagation lines. The next
 stage may reorganize this information into backend-independent physics records,
 but it is not permitted to invent a new pairing or reinterpret the fermionic
 sign.
+
+\subsection{Contraction topologies}
+\label{sec:topologies}
+
+Because the pairing search is complete within each flavor and is not restricted to source--sink
+lines, every quark-flow topology allowed by the flavor content of the operators is generated
+automatically; no diagram is entered by hand or selected by the user. This includes quark lines
+that start and end on the same time slice and closed quark loops. Representative diagrams are
+shown in Fig.~\ref{fig:topologies}, and Table~\ref{tab:topology_counts} lists the number of Wick
+terms that \textsc{SymCorr} generates for representative operators, separated into terms whose
+quark lines all connect source and sink, terms that contain equal-time lines, and disconnected
+terms with closed loops. The relative signs and the subsequent tensor-network construction follow
+from the same rules for all of them.
+
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+    hadron/.style={ellipse, draw, fill=black!12, minimum width=0.34cm, minimum height=0.62cm, inner sep=0pt},
+    baryon/.style={ellipse, draw, fill=black!12, minimum width=0.38cm, minimum height=0.95cm, inner sep=0pt},
+    qline/.style={thick, postaction={decorate},
+                  decoration={markings, mark=at position 0.55 with {\arrow{Latex[length=1.7mm]}}}},
+    fl/.style={font=\footnotesize},
+    tl/.style={font=\footnotesize, text=black!70},
+    pcap/.style={font=\footnotesize, align=center, text width=3.9cm},
+  ]
+  % ---------------- row 1 ----------------
+  % (a) meson
+  \begin{scope}[shift={(0,0)}]
+    \node[hadron] (s) at (0,0) {}; \node[hadron] (k) at (2.6,0) {};
+    \draw[qline] (0.12,0.15) to[bend left=28] node[fl, above] {$u$} (2.48,0.15);
+    \draw[qline] (2.48,-0.15) to[bend left=28] node[fl, below] {$d$} (0.12,-0.15);
+    \node[tl] at (0,-1.05) {$t_0$}; \node[tl] at (2.6,-1.05) {$t$};
+    \node[pcap] at (1.3,-1.6) {(a) meson, $\pi^+$};
+  \end{scope}
+  % (b) closed loops
+  \begin{scope}[shift={(4.4,0)}]
+    \node[hadron] (s) at (0.55,0) {}; \node[hadron] (k) at (2.05,0) {};
+    \draw[qline] (k.east) .. controls +(0.95,0.8) and +(0.95,-0.8) .. (k.east);
+    \draw[qline] (s.west) .. controls +(-0.95,-0.8) and +(-0.95,0.8) .. (s.west);
+    \node[fl] at (3.0,0.45) {$u$}; \node[fl] at (-0.4,0.45) {$u$};
+    \node[tl] at (0.55,-1.05) {$t_0$}; \node[tl] at (2.05,-1.05) {$t$};
+    \node[pcap] at (1.3,-1.6) {(b) closed loops, $\bar u u$};
+  \end{scope}
+  % (c) baryon direct
+  \begin{scope}[shift={(8.8,0)}]
+    \node[baryon] (s) at (0,0) {}; \node[baryon] (k) at (2.6,0) {};
+    \draw[qline] (0.17,0.27) -- (2.43,0.27);
+    \draw[qline] (0.18,0) -- (2.42,0);
+    \draw[qline] (0.17,-0.27) -- (2.43,-0.27);
+    \node[fl, right] at (2.75,0.27) {$d$}; \node[fl, right] at (2.75,0) {$u$}; \node[fl, right] at (2.75,-0.27) {$u$};
+    \node[tl] at (0,-1.05) {$t_0$}; \node[tl] at (2.6,-1.05) {$t$};
+    \node[pcap] at (1.3,-1.6) {(c) baryon, direct};
+  \end{scope}
+  % (d) baryon exchange
+  \begin{scope}[shift={(13.2,0)}]
+    \node[baryon] (s) at (0,0) {}; \node[baryon] (k) at (2.6,0) {};
+    \draw[qline] (0.17,0.27) -- (2.43,0.27);
+    \draw[qline] (0.18,0) .. controls (1.2,0) and (1.4,-0.27) .. (2.43,-0.27);
+    \draw[qline] (0.17,-0.27) .. controls (1.2,-0.27) and (1.4,0) .. (2.42,0);
+    \node[fl, right] at (2.75,0.27) {$d$}; \node[fl, right] at (2.75,0) {$u$}; \node[fl, right] at (2.75,-0.27) {$u$};
+    \node[tl] at (0,-1.05) {$t_0$}; \node[tl] at (2.6,-1.05) {$t$};
+    \node[pcap] at (1.3,-1.6) {(d) baryon, exchange};
+  \end{scope}
+
+  % ---------------- row 2 ----------------
+  % (e) two mesons, crossed
+  \begin{scope}[shift={(0,-3.6)}]
+    \node[hadron] (s1) at (0,0.6) {}; \node[hadron] (k1) at (2.6,0.6) {};
+    \node[hadron] (s2) at (0,-0.6) {}; \node[hadron] (k2) at (2.6,-0.6) {};
+    \draw[qline] (0.12,0.72) .. controls (1.1,0.8) and (1.5,-0.5) .. (2.48,-0.48);
+    \draw[qline] (0.12,-0.72) .. controls (1.1,-0.8) and (1.5,0.5) .. (2.48,0.48);
+    \draw[qline] (2.48,0.72) to[bend right=12] (0.12,0.48);
+    \draw[qline] (2.48,-0.72) to[bend left=12] (0.12,-0.48);
+    \node[fl] at (3.0,0.6) {$\pi^+$}; \node[fl] at (3.0,-0.6) {$\pi^+$};
+    \node[tl] at (0,-1.25) {$t_0$}; \node[tl] at (2.6,-1.25) {$t$};
+    \node[pcap] at (1.3,-1.8) {(e) two mesons, crossed $u$ lines};
+  \end{scope}
+  % (f) two mesons, equal-time lines (rectangle)
+  \begin{scope}[shift={(4.4,-3.6)}]
+    \node[hadron] (s1) at (0,0.6) {}; \node[hadron] (k1) at (2.6,0.6) {};
+    \node[hadron] (s2) at (0,-0.6) {}; \node[hadron] (k2) at (2.6,-0.6) {};
+    \draw[qline] (0.12,0.6) -- (2.48,0.6);
+    \draw[qline] (2.48,-0.6) -- (0.12,-0.6);
+    \draw[qline] (k1.south) to[bend left=35] (k2.north);
+    \draw[qline] (s2.north) to[bend left=35] (s1.south);
+    \node[fl] at (3.0,0.6) {$\pi^+$}; \node[fl] at (3.0,-0.6) {$\pi^-$};
+    \node[tl] at (0,-1.25) {$t_0$}; \node[tl] at (2.6,-1.25) {$t$};
+    \node[pcap] at (1.3,-1.8) {(f) two mesons, equal-time lines};
+  \end{scope}
+  % (g) baryon-meson, equal-time lines
+  \begin{scope}[shift={(8.8,-3.6)}]
+    \node[baryon] (s1) at (0,0.55) {}; \node[baryon] (k1) at (2.6,0.55) {};
+    \node[hadron] (s2) at (0,-0.75) {}; \node[hadron] (k2) at (2.6,-0.75) {};
+    \draw[qline] (0.17,0.75) -- (2.43,0.75);
+    \draw[qline] (0.18,0.45) -- (2.42,0.45);
+    \draw[qline] (0.12,-0.75) -- (2.48,-0.75);
+    \draw[qline] (k2.north) to[bend right=30] (k1.south);
+    \draw[qline] (s1.south) to[bend right=30] (s2.north);
+    \node[fl] at (3.05,0.55) {$p$}; \node[fl] at (3.05,-0.75) {$\pi^+$};
+    \node[tl] at (0,-1.25) {$t_0$}; \node[tl] at (2.6,-1.25) {$t$};
+    \node[pcap] at (1.3,-1.8) {(g) baryon--meson, equal-time lines};
+  \end{scope}
+  % (h) two baryons
+  \begin{scope}[shift={(13.2,-3.6)}]
+    \node[baryon] (s1) at (0,0.6) {}; \node[baryon] (k1) at (2.6,0.6) {};
+    \node[baryon] (s2) at (0,-0.6) {}; \node[baryon] (k2) at (2.6,-0.6) {};
+    \foreach \y in {0.87,0.6,0.33,-0.33,-0.6,-0.87} {\draw[qline] (0.18,\y) -- (2.42,\y);}
+    \node[fl] at (3.05,0.6) {$p$}; \node[fl] at (3.05,-0.6) {$p$};
+    \node[tl] at (0,-1.25) {$t_0$}; \node[tl] at (2.6,-1.25) {$t$};
+    \node[pcap] at (1.3,-1.8) {(h) two baryons, direct};
+  \end{scope}
+\end{tikzpicture}
+\caption{Representative quark-flow topologies generated by \textsc{SymCorr}. Ellipses are
+hadron operators at the source time $t_0$ (left) and the sink time $t$ (right); arrows follow
+quark propagation. (a) Single meson. (b) Disconnected term of a flavor-diagonal meson with a
+closed quark loop at each time. (c, d) Direct and exchange terms of the proton. (e) Two mesons
+with crossed lines. (f) Two mesons with one equal-time line at each time (rectangle). (g) Baryon
+and meson with equal-time lines. (h) Two separately projected baryons. All terms of a correlator,
+including the remaining exchanges, are enumerated automatically; Table~\ref{tab:topology_counts}
+gives the counts.}
+\label{fig:topologies}
+\end{figure*}
+
+\begin{table}[t]
+\centering
+\caption{Number of Wick terms generated by \textsc{SymCorr} for $C(t,t_0)=\langle\mathcal O(t)\,\mathcal O^\dagger(t_0)\rangle$,
+separated into terms whose quark lines all connect source and sink, connected terms containing
+equal-time lines, and disconnected terms with closed loops. Two-meson and two-baryon operators
+are products of separately projected hadrons; $p\pi^+$ is local.}
+\label{tab:topology_counts}
+\begin{tabular}{lrrrr}
+\toprule
+$\mathcal O$ & terms & source--sink & equal-time & loops \\
+\midrule
+$\pi^+=\bar d\gamma_5 u$ & 1 & 1 & 0 & 0 \\
+$\bar u u$ & 2 & 1 & 0 & 1 \\
+$p=\epsilon_{abc}(u_a^\top C\gamma_5 d_b)u_c$ & 2 & 2 & 0 & 0 \\
+$\Delta^{++}=\epsilon_{abc}(u_a^\top C\gamma_i u_b)u_c$ & 6 & 6 & 0 & 0 \\
+$\pi^+\pi^+$ & 4 & 4 & 0 & 0 \\
+$\pi^+\pi^-$ & 4 & 1 & 2 & 1 \\
+$p\pi^+$ & 12 & 6 & 6 & 0 \\
+$pp$ ($I=1$, ${}^1S_0$) & 48 & 48 & 0 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Lowering to the Distillation Representation}
