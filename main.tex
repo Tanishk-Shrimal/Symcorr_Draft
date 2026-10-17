@@ -2023,97 +2023,757 @@ matrix elements and Wick terms, and partial contractions shared between differen
 further reduction (Sec.~\ref{sec:execution}). The reductions obtained for larger systems are
 quantified in Sec.~\ref{sec:performance}.
 
-\subsection{Memory and time-slice planning}
+\sloppy
+\subsection{Contraction-path selection}
+\label{sec:contraction_paths}
 
-% Discuss tiling, staging, time batching and lifetime-aware memory decisions.
-% Explain first what is being batched/tiled physically.
+The order in which the tensors of one connected component are contracted does
+not change its value, but it determines the operation count, the size of the
+intermediates and, through partial-intermediate reuse, how much work different
+components can share. \textsc{SymCorr} exposes this choice as one compile option,
+\texttt{compile.contraction.strategy}:
+
+\begin{description}
+\item[\texttt{greedy}] (default) passes every unique component to the greedy
+path search of \texttt{opt\_einsum}. It is fast and deterministic, but it chooses
+each pairwise step from local cost information only.
+\item[\texttt{dynamic-programming}, \texttt{auto-hq}] use the corresponding
+\texttt{opt\_einsum} searches. Dynamic programming minimizes the operation count
+of one component exactly; \texttt{auto-hq} uses an exhaustive search for up to
+five tensors, dynamic programming for up to sixteen and the best of 128 seeded
+randomized-greedy trials beyond that. Both are deterministic for a fixed problem, but their
+compile time grows rapidly with the number of tensors in a component.
+\item[\texttt{reuse-aware}] is a \textsc{SymCorr} meta-strategy. It builds the
+complete plan four times, with greedy, dynamic-programming and one- and
+two-branch searches, and evaluates every candidate \emph{after} partial-intermediate
+reuse, logical scheduling and physical buffer assignment. The candidate with the
+fewest scheduled FLOPs is selected among those whose buffer pool does not exceed
+a ceiling. Without an explicit byte budget the ceiling is the buffer capacity of
+the greedy plan, so the selection never increases memory relative to the
+default; \texttt{compile.physical.memory\_limit\_bytes} replaces it by a hard
+user limit. The exact searches are applied only when every component has at most
+twelve tensor inputs; otherwise the whole calculation keeps the greedy candidate
+so that compile time stays predictable.
+\item[\texttt{adaptive}] stores the deterministic greedy baseline and lets the
+runtime choose between it and the reuse-aware candidates by timing them on the
+selected device with synthetic tensors of the exact planned shapes. The chosen
+execution payload receives its own hash, so resumable output never mixes
+schedules.
+\end{description}
+
+Independently of the strategy, \texttt{compile.contraction.memory\_limit} bounds
+the size of every pairwise intermediate (in tensor elements) during path search.
+It is a path constraint, not a buffer budget, and can lower the operation count
+as well as the memory when the unconstrained greedy search builds a large
+intermediate early. Section~\ref{sec:performance} quantifies the effect of these
+choices for the benchmark systems.
+
+\subsection{Memory and time-slice planning}
+\label{sec:memory_planning}
+
+After path selection the logical DAG still describes \emph{what} must be
+computed. Two compile-time passes decide \emph{when} each value exists and
+\emph{where} it is stored; a third, run-time pass decides how many independent
+time slices are processed together.
+
+\paragraph{Logical schedule and lifetimes}
+A list scheduler chooses one legal sequential order of all logical operations.
+The default \texttt{memory\_aware} policy ranks ready operations by downstream
+criticality, value fan-out, tensor sizes, contraction cost and, in particular,
+by how much input memory an operation releases once it has been executed;
+\texttt{critical\_path} and \texttt{topological} orders are available for
+comparison. The schedule fixes, for every value, the step at which it is
+produced and the last step at which it is consumed. Assuming that an operation
+output is materialized before its inputs are released, this yields the logical
+peak of simultaneously live bytes.
+
+\paragraph{Physical buffers}
+The physical planner maps scheduled values onto reusable abstract buffer slots.
+Two values may share a slot only when their lifetimes do not overlap. The default
+\texttt{best\_fit} policy places a value into the smallest released slot that
+is large enough; \texttt{size\_matched} reuses only equal-sized slots, which
+makes the physical peak equal to the logical peak for the same schedule at the
+price of more total capacity on some workloads; \texttt{none} disables reuse.
+Requested correlator outputs are retained until the end of the work unit. The
+resulting plan therefore carries four memory figures that are reported
+without touching any lattice data: the total size of all materialized values
+(no reuse), the logical peak live bytes, the physical peak active bytes and the
+total reserved buffer capacity. Because a resident executor allocates the buffer
+pool up front and produces each operation result before copying it into its
+slot, the exactly modeled resident requirement of one work unit is
+\begin{equation}
+M_{\mathrm{known}} = M_{\mathrm{pool}} + \max_v M_v ,
+\label{eq:resident_memory}
+\end{equation}
+where the maximum runs over all produced values.
+
+\paragraph{Work units and time batching}
+The compiled plan describes one \emph{work unit}: one gauge configuration and
+one time context, i.e.\ one assignment of times to the operator insertions (one
+source--sink pair \((t_0,t)\) for a two-point function). The runtime may stack
+\(B\) work units of the same configuration into one execution. The batched
+executor prepends one private axis to every primitive, intermediate, Wick-term
+and correlator value; this axis is present in every operation output and is never
+contracted, so different time contexts cannot couple. For \(B>1\) the modeled
+resident peak is
+\begin{equation}
+M_B = B\,M_{\mathrm{pool}}
+ + \max\!\left(B\,M_{\mathrm{transient}},\; 2B\,M_{\mathrm{primitive,max}}\right),
+\label{eq:batched_memory}
+\end{equation}
+where the second term covers either the largest batched operation result or the
+temporary coexistence of per-context primitive tensors with their stacked copy.
+With \texttt{run.time\_batch\_size: auto} (the default) the candidates are powers
+of two and the number of pending time contexts, limited by the safe memory of the
+selected device (Sec.~\ref{sec:hardware_planning}). The feasible candidates are
+timed with seeded synthetic tensors of the exact planned shapes, subject to
+guards of \(16\)~GiB of synthetic data, \(10^{13}\) scheduled FLOPs per sample and
+an estimated \(180\)~s calibration budget, and the size with the smallest median
+time per work unit is chosen. Results of the batched and unbatched executions are
+compared during calibration. Batch size one is always available and is used
+whenever memory cannot be measured or calibration is incomplete; an explicit
+integer batch size is a reproducibility override that is still checked against
+the current memory. Configurations are never mixed in one batch, and a final
+short batch is allowed.
+
+\paragraph{Configuration-scoped reuse}
+Within one gauge configuration the runtime allocates one buffer pool at the
+selected maximum batch size and reuses it for all batches; a short final batch
+activates a prefix of the existing pool. Primitive tensors whose complete
+numerical request agrees (for example the source-time kernels, which are the
+same for every sink time) are retained in a bounded cache whose admission budget
+is the remaining safe memory after the batch peak of Eq.~\eqref{eq:batched_memory}.
+Read-only HDF5 handles are shared, a batch of perambulator requests along one
+time axis is coalesced into one covering slab read, and the reads for the next
+batch can be staged by one background reader (with pinned host memory and a
+separate stream on CUDA) while the current batch is contracted. All of these are
+run-time lifetime optimizations: they change neither the mathematical reuse
+decided by the compiler nor the serialized plan nor the resume identity, and
+their admission decisions and hit counts are reported in the run summary.
 
 \subsection{Hardware-aware execution planning}
+\label{sec:hardware_planning}
 
-% Explain how hardware information influences execution choices without
-% presenting device-specific tuning as part of the physics interface.
+Hardware information enters only at run time and never enters symbolic
+expressions, resource identities, reuse decisions or the plan fingerprint. A
+read-only snapshot records the memory visible to the process (host memory capped
+by a cgroup limit when one applies, CPU count respecting process affinity, and
+for every visible CUDA device its current free memory including allocator cache
+that the process can reuse). From the available memory a safety reserve is
+retained, the larger of a fraction and an absolute minimum,
+\begin{equation}
+M_{\mathrm{safe}} = M_{\mathrm{avail}} - \max\!\left(f\,M_{\mathrm{avail}},\,M_{\min}\right),
+\label{eq:safe_memory}
+\end{equation}
+with \((f,M_{\min})=(0.20,\,2~\mathrm{GiB})\) for host memory and
+\((0.10,\,1~\mathrm{GiB})\) for a CUDA device.
+The reserve covers the operating system, allocator overhead, provider-owned
+tensors and library workspaces, which are not modeled exactly. All defaults form
+one immutable policy object that applications can replace.
+
+With \texttt{run.device: auto} the planner prefers a fully resident CUDA
+deployment when Eq.~\eqref{eq:resident_memory} fits into the safe device memory.
+If it does not, but the working set fits into safe host memory, a
+\emph{host-staged} plan is derived: complete values stay in a host buffer pool,
+and each contraction copies bounded operand tiles to the device and writes the
+result tile directly into its host buffer. Only LapH-mode indices may be split;
+spin indices are never tiled. Tiles of an output index fill disjoint slices,
+whereas tiles of a contracted index are accumulated before the Wick-term
+coefficient is applied, so the modeled device memory of one operation is its input
+tiles plus one output tile (two when a contracted index is split). If neither
+CUDA deployment is safe, a resident CPU deployment is used. An explicitly
+requested CUDA device may use host staging but never falls back to another
+device. The selected device is revalidated before every unfinished work unit;
+because completed work units are already on disk, a failure at that point can be
+resumed. Host staging trades device memory for more kernel launches and
+transfers and is a feasibility mechanism rather than a speed optimization;
+time batching is not combined with it.
 
 \subsection{Numerical execution}
+\label{sec:numerical_execution}
 
-% Explain how the finalized plan is evaluated on CPU/GPU and how results are
-% assembled into correlators/correlation matrices.
+\paragraph{Binding and materialization}
+For each work unit the compiled primitive resources are bound to data. Spatial
+kernels (meson elementals, color-\(\epsilon\) baryon kernels, and their
+derivative or gauge-transported variants) are built from the LapH eigenvectors
+and, when needed, the smeared gauge links of the configuration; perambulators are
+read from HDF5 in either fixed-source or all-time layout and canonicalized to
+\((\text{sink mode},\text{sink spin},\text{source mode},\text{source spin})\),
+with the reverse orientation reconstructed by \(\gamma_5\)-Hermiticity when only
+the forward direction is stored. A binding plan prepared for one work unit is
+reused for the next only when the physical plan, spin basis, propagation sources,
+kernel providers and operator-time pattern agree exactly; otherwise execution
+fails instead of inferring a replacement. Shapes, scalar types and buffer
+capacities are validated before any contraction.
+
+\paragraph{Contraction}
+The executor processes the stored physical operations in their scheduled order
+using PyTorch tensors on the CPU or on one CUDA device. It interprets only tensors
+and index labels; flavor, operator names and propagation physics are no longer
+visible at this level, and no contraction order is re-optimized at run time. An
+exact structural recognizer maps eligible binary contractions to a single
+\texttt{torch.mm} or \texttt{torch.bmm} call that writes directly into the planned
+output buffer; all other contractions use a fixed-path \texttt{opt\_einsum}
+expression cached by labeled shape. Wick-term coefficients are applied to the
+component products, and the correlator sums are accumulated in their output
+buffers.
+
+\paragraph{Output and resumption}
+Results are written to one HDF5 file per job. Each requested correlator is a
+dataset of shape \((N_{\mathrm{cfg}}, N_{\mathrm{time}}) \times\) (its open spin
+and other output axes), chunked by work unit and annotated with its correlator
+identifier and axis labels. A Boolean \texttt{completed} array of shape
+\((N_{\mathrm{cfg}}, N_{\mathrm{time}})\) is set only after all correlators of a
+work unit have been written and flushed. The file also stores the plan hash, a
+run fingerprint and the job metadata, so an interrupted job resumes with the
+unfinished work units only and refuses to append to a file produced by a
+different plan or run configuration. A machine-readable run record separates the
+time spent in run-time planning, data preparation, numerical execution, input
+waits and output writing; these records are the source of the timings in
+Sec.~\ref{sec:performance}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Validation and Correctness}
 \label{sec:validation}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% This should be a major section in a software paper. Distinguish verification
-% of algebra from numerical agreement and from performance testing.
-
 \subsection{Validation strategy}
+\label{sec:validation_strategy}
 
-% Explain the hierarchy of unit, regression, numerical and end-to-end tests.
+A correlator generator can fail in ways that are invisible in a single number:
+a wrong relative sign between two Wick terms, a transposed spin matrix, a
+complex-conjugated phase, or a mismatched storage axis can all produce smooth,
+plausible-looking correlators. We therefore distinguish three kinds of
+reference, in decreasing order of independence:
+\begin{enumerate}
+\item \emph{external code}: correlators or LapH elementals produced by
+Chroma/Chroma-LapH for the same gauge configuration, eigenvectors and
+perambulators;
+\item \emph{independent contractions}: NumPy programs that enumerate the ordered
+Grassmann pairings themselves, build the LapH elementals directly from the
+eigenvectors and contract them with \texttt{einsum}, without importing the
+\textsc{SymCorr} Wick generator, compiler or executor;
+\item \emph{exact identities}: relations between \emph{differently} contracted
+correlators that must hold configuration by configuration, such as flavor
+symmetry when all light flavors are bound to the same perambulator, or the
+vanishing of a Pauli-forbidden channel.
+\end{enumerate}
+All comparisons use the full complex correlator, and for baryons the full
+unprojected \(4\times4\) spin matrix rather than a parity trace. Each comparison
+also carries a negative control (opposite momentum phase, flipped coefficient,
+omitted disconnected term, or opposite derivative sign) that must fail, so that
+agreement is not an artifact of a loose tolerance around small numbers. The
+real-data checks use the A653-like \(N_f=3\) ensemble described in
+Sec.~\ref{sec:benchmark_setup}, except for the comparisons with Chroma correlator
+files (single mesons, bilocal two-meson and local four-quark operators), which use
+a separate Chroma data set.
+% TODO(authors): state the ensemble, N_v and quark content of the Chroma XML
+% meson/bilocal/four-quark references; they are not recorded in docs/validation.md.
 
 \subsection{Symbolic and Wick-contraction tests}
+\label{sec:validation_symbolic}
 
-% Test flavor matching, signs, normalization, simplification and boundary cases.
+The portable regression suite (1524 tests) exercises the symbolic layer
+directly: flavor-compatible pairings, the permutation-parity sign of every
+pairing, the coefficients of linear combinations, exact cancellation of terms
+with identical canonical form and opposite coefficients, the normalization of
+spin matrices in both the DeGrand--Rossi and Dirac--Pauli bases, the source
+adjoint of derivative and transported fields, and the explicit rejection of
+unsupported requests such as temporal derivatives. In the absence of
+cancellations the number of Wick terms of a correlator equals the number of
+flavor-allowed pairings, \(\prod_f n_f!\), where \(n_f\) is the number of quark
+fields of flavor \(f\); the counts of Table~\ref{tab:topology_counts} satisfy this
+relation. A maintained numerical oracle feeds random color-\(\epsilon\)
+elementals and distinct up- and down-quark propagation tensors through the
+production runtime and compares the complete local-proton spin matrix with an
+explicit direct-minus-exchange Einstein contraction; it also verifies the DP
+positive-parity trace and the covariance between the DR and DP bases. Because
+this oracle does not depend on any file layout, it protects the baryon Wick,
+spin and runtime-axis algebra between real-data validation campaigns.
 
 \subsection{Numerical correlator validation}
+\label{sec:validation_numerical}
 
-% Present validated systems one by one.
-% Candidate subsections/cases: mesons, baryons, tetraquarks and other systems
-% only when a trusted reference calculation is available.
+Table~\ref{tab:validation} lists the real-data comparisons. Mesons, bilocal
+two-meson operators and the derivative and gauge-transported operators are
+compared with Chroma or Chroma-LapH; baryon-meson systems, the \(\Delta^{++}\) and
+the disconnected loops with independent NumPy contractions; and the multi-baryon
+systems, for which no external reference was available to us, with exact
+flavor identities.
+
+\begin{table*}[t]
+\centering
+\caption{Real-data validation of \textsc{SymCorr} correlators. ``Deviation'' is the
+maximum absolute difference, or, where marked, the maximum difference divided by
+the largest reference magnitude. All comparisons use complex128 arithmetic.}
+\label{tab:validation}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llccl@{}}
+\toprule
+System & Reference & \(N_v\) & Deviation & Remarks \\
+\midrule
+\(D, K, D^*, K^*\) (rest frame) & Chroma correlators & -- & \(\le 1.2\times10^{-12}\) & all 24 time slices \\
+\(D\), \(\vec P=(0,0,1)\) & Chroma correlators & -- & \(1.3\times10^{-13}\) & opposite phase fails \\
+bilocal two-meson, 13 channels & Chroma correlators & -- & \(\le 6.4\times10^{-12}\) & direct and exchange terms \\
+\(\bar d\gamma_5 D_i u\), \(\bar d\gamma_5 T_{+i}u\), \(T_{+x,+y}\) & Chroma-LapH elementals & 64 & \(1.0\times10^{-14}\) (rel.) & 7 channels, 4 sink times \\
+\(\epsilon(u^T C\gamma_5 d)\,T_{+x}u\) & transport reference & 64 & \(1.8\times10^{-16}\) (rel.) & full \(4\times4\) spin matrix \\
+local four-quark \(T_1^{+}\) & Chroma correlators & 45 & \(2\times10^{-14}\) (rel.) & up to normalization \(V^2\) \\
+\(p\pi^+\), \(I=\tfrac12\) \(N\pi\), \(N\sigma\) & NumPy contraction & 8 & \(\le 5.4\times10^{-15}\) (rel.) & incl. equal-time propagation \\
+\(N\pi\pi\) (\(I=0\) pair) & NumPy contraction & 3 & \(6.3\times10^{-15}\) (rel.) & 6624 Wick terms per sink \\
+\(\Delta^{++}\), \(3\times3\) vector-spin & NumPy contraction & 8 & \(2.2\times10^{-15}\) (rel.) & before and after projection \\
+scalar, \(\gamma_4\) loops; \(\bar uu\) two-point & NumPy contraction & 64 & \(\le 4.6\times10^{-13}\) & connected + disconnected \\
+scalar loop, \(\vec p=(1,0,0)\) & NumPy contraction & 64 & \(3.4\times10^{-15}\) & 64 time slices \\
+\(\Delta^+ = \Delta^{++}\), \(\Lambda = p\) & exact identity & 64 & \(\le 6.1\times10^{-16}\) (rel.) & 2 configurations \\
+\(NN\): \(\tfrac{1}{\sqrt2}(np+pn) = pp\), \(I=0\) \(^1S_0 = 0\) & exact identity & 64 & \(\le 5.6\times10^{-16}\) (rel.) & 2 configurations \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+Several entries deserve comment. The derivative and transported pion channels
+fix the derivative normalization \(D_i=\tfrac12(T_{+i}-T_{-i})\), the path
+ordering of \(T_{+x,+y}\) and the source adjoint; they were compared with the
+original Chroma-LapH elementals at four source--sink separations. The local
+four-quark operator agrees with Chroma once the different normalization
+convention is taken into account: \textsc{SymCorr} evaluates every operator as the
+unnormalized sum \(\sum_{\vec x}e^{i\vec p\cdot\vec x}O(\vec x)\), whereas the
+external code includes one extra factor of the spatial volume per insertion for
+this operator; no global correction is applied. The baryon-meson references
+include the terms with equal-time (``same time slice'') propagation separately,
+because these dominate the raw correlators and would otherwise mask errors in the
+cross-time terms. The \(N\sigma\) and \(\bar uu\) results are not vacuum
+subtracted; vacuum subtraction is part of the ensemble analysis, not of the
+contraction.
+
+For baryons beyond the single nucleon and the \(\Delta\), exact identities take
+the place of an external reference. With
+\(D(q_1,q_2)=\epsilon_{abc}(q_{1a}^TC\gamma_5q_{2b})\) and
+\(D_i(q_1,q_2)=\epsilon_{abc}(q_{1a}^TC\gamma_iq_{2b})\),
+\begin{align}
+\Delta^+_i &= \tfrac{1}{\sqrt3}\left[2D_i(u,d)\,u + D_i(u,u)\,d\right],\nonumber\\
+\Lambda &= \tfrac{1}{\sqrt6}\left[2D(u,d)\,s + D(u,s)\,d - D(d,s)\,u\right],\nonumber\\
+\langle \Delta^+_i \bar\Delta^+_j\rangle &= \langle \Delta^{++}_i\bar\Delta^{++}_j\rangle,
+\qquad
+\langle \Lambda\bar\Lambda\rangle = \langle p\,\bar p\rangle,
+\label{eq:baryon_identities}
+\end{align}
+hold exactly when \(u\), \(d\) and \(s\) are bound to the same perambulator, although the
+compared correlators contain different numbers of Wick terms (8 versus 6 and 9
+versus 2). For two nucleons, each projected separately to zero momentum and
+coupled with \(C\gamma_5\), the \(I=1\), \(I_3=0\) combination
+\((n_xp_y+p_xn_y)/\sqrt2\) (144 Wick terms) must reproduce \(pp\) (48 terms), and
+the \(I=0\) spin-singlet combination \((n_xp_y-p_xn_y)/\sqrt2\) must vanish
+because both nucleons occupy the same spatial state. Changing one coefficient in
+the \(\Delta^+\) or \(\Lambda\) operator changes the result by 20--50\%, and the
+forbidden two-nucleon channel is below \(2.1\times10^{-16}\) of the \(pp\)
+correlator.
 
 \subsection{End-to-end and regression testing}
+\label{sec:validation_end_to_end}
 
-% Explain equivalence tests, resume behavior, time batching equivalence,
-% CPU/GPU consistency where available, and the role of regression tests.
+The production path is exercised end to end by the regression suite: a job is
+planned, the portable plan is saved and reloaded, synthetic HDF5 eigenvector and
+perambulator files are bound, and the persisted output is compared with
+independent formulas. Further tests check that batched and unbatched execution
+agree, that host-staged tiling reproduces resident execution, that propagation
+prefetch does not change results, that interrupted jobs resume only the
+unfinished work units, and that a stale plan or a result file from a different
+run is rejected. The CUDA-specific variants of these tests run only where a
+device is present.
+
+On real data, the complete \(64\times64\) source--sink grid of a rest-frame
+pion and a positive-parity nucleon (4096 work units each, \(N_v=64\)) was
+computed from the same saved plans on a 64-core CPU node and on one NVIDIA H100.
+The two backends agree to \(5.4\times10^{-15}\) (pion) and \(1.7\times10^{-15}\)
+(nucleon) relative to the channel magnitude. Validation in this section is
+bounded by what was compared: three-point functions, generalized (POINT-current)
+propagation, disconnected loops beyond the local scalar and \(\gamma_4\) cases and
+the \(\vec p=(1,0,0)\) scalar loop, derivative operators with other spin
+structures or displaced baryon legs, and multi-device execution are implemented
+or planned but are not covered by Table~\ref{tab:validation}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Worked Examples}
 \label{sec:examples}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Use a small number of examples that illustrate increasing complexity.
-% Each example should show input operator -> generated structure -> numerical
-% result, rather than merely listing package syntax.
+The operator examples of Sec.~\ref{sec:symbolic} showed how single hadrons are
+written. This section follows complete calculations from the operator file to
+the stored correlators, using systems that are tedious to set up by hand: a
+nucleon--pion correlation matrix, a two-nucleon system with an exact isospin
+check, and the triton.
 
-\subsection{Meson correlator}
+\subsection{A nucleon--pion correlation matrix}
+\label{sec:example_npi}
 
-% First and simplest worked example.
+The \(I=\tfrac12\), \(I_3=+\tfrac12\) nucleon--pion basis of
+Table~\ref{tab:benchmark_bases} combines a local proton, six proton operators with
+a gauge-transported third quark and the two-hadron operators
+\begin{equation}
+(N\pi)_{\vec p} = \sqrt{2/3}\;n(\vec p)\,\pi^+(-\vec p)-\sqrt{1/3}\;p(\vec p)\,\pi^0(-\vec p).
+\end{equation}
+Using
+small helper functions for the hadrons (with the conventions of
+Sec.~\ref{sec:symbolic}), the operator file and the job file are shown in
+Fig.~\ref{fig:npi_job}. The helpers \texttt{pi\_plus} and \texttt{pi\_zero} return
+\(\bar d\gamma_5u\) and \((\bar u\gamma_5u-\bar d\gamma_5d)/\sqrt2\) at the given
+position and momentum, and the open nucleon spin index \texttt{sN} becomes a
+\(4\times4\) output axis of every correlator. Index labels only need to be distinct
+within one operator (the pion helpers use their own labels); every insertion of
+an operator into a correlator is renamed into a separate namespace. In the job
+file, \texttt{\{configuration\}} and \texttt{\{source\_time\}} are expanded per work
+unit.
 
-\subsection{Baryon correlator}
+\begin{figure*}[t]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+\footnotesize
+\textbf{(a)} \texttt{npi\_ops.py}
+\begin{verbatim}
+def nucleon(q3, pos, p=(0, 0, 0), hop=None):
+    f = q3(pos, "c", "sN")
+    if hop is not None:
+        f = transport(f, hop)
+    return Operator(
+        epsilon("a", "b", "c")
+        * spin_matrix("Cg5", "al", "be")
+        * u(pos, "a", "al") * d(pos, "b", "be")
+        * f, momentum=p)
 
-% Demonstrate multiple quark fields and non-trivial Wick structure.
+def build(max_shell=2):
+    ops = [nucleon(u, "x")]
+    ops += [nucleon(u, "x", hop=h) for h in
+            ("+x", "-x", "+y", "-y", "+z", "-z")]
+    for p in momenta(max_shell):  # 19 momenta
+        mp = neg(p)
+        ops.append(
+            sqrt(2/3) * nucleon(d, "x", p)
+                      * pi_plus("y", mp)
+          - sqrt(1/3) * nucleon(u, "x", p)
+                      * pi_zero("y", mp))
+    return {f"C_{i}_{j}": c
+            for i, j, c in CorrMatrix(ops)}
+\end{verbatim}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+\footnotesize
+\textbf{(b)} \texttt{npi\_job.yaml}
+\begin{verbatim}
+operators: {file: npi_ops.py, factory: build}
+lattice: {spatial_extent: [24, 24, 24],
+          temporal_extent: 64}
+compile:
+  mode_size: 32
+  scalar_type: complex128
+  spin_basis: DP
+  contraction: {strategy: reuse-aware}
+run:
+  device: auto
+  configurations: {values: [1]}
+  times:
+    generator: {type: two_point, source: 0,
+                sinks: {range: {start: 1, stop: 9}}}
+data:
+  eigenvectors:
+    provider: hdf5_distillation
+    path: laphev_{configuration}.h5
+    dataset: /eigenvectors
+    axes: [time, z, y, x, color, mode]
+  gauge_links: {provider: laph_iomap,
+                path: gauge_{configuration}}
+  propagation:
+    provider: hdf5_perambulator
+    ordinary:
+      files: {u: peram_{configuration}.h5,
+              d: peram_{configuration}.h5}
+      dataset: /perambulators/src_t_{source_time}/data
+      source_field: qdagger
+      axes: [sink_time, source_spin, sink_spin,
+             source_mode, sink_mode]
+\end{verbatim}
+\end{minipage}
+\caption{Complete input of the nucleon--pion example of Sec.~\ref{sec:example_npi}:
+(a) the operator factory, (b) the job file. \texttt{momenta}, \texttt{neg},
+\texttt{pi\_plus} and \texttt{pi\_zero} are short helpers in the same file.}
+\label{fig:npi_job}
+\end{figure*}
 
-\subsection{Multi-hadron or tetraquark example}
+The gauge links are needed only because of the transported quark. Because
+\(\pi^0\) contains \(\bar uu\) and \(\bar dd\) at one point, some Wick terms
+contain propagation from a time slice to itself, so the perambulators are read in
+the all-time layout. For the first 13 operators (169 correlators),
+\texttt{symcorr plan} followed by \texttt{symcorr inspect} reports
+{\footnotesize
+\begin{verbatim}
+Contraction:     reuse-aware
+Selected paths:  greedy
+Resources:       65 (58 kernel, 5 spin, 2 propagation)
+Execution:       18115 physical steps, 4842 buffers,
+                 peak active 1.45 GiB
+Wick terms       5594/5594 surviving
+components       4308/8162 unique
+intermediates    12273/62108 unique
+est. FLOPs       1.07e12 scheduled;
+                 7.15e11 saved by intermediate CSE
+\end{verbatim}}
+without reading any lattice data. The 5594 Wick terms of the 169 correlators
+contain 8162 connected networks, of which 4308 are distinct; the pairwise
+contractions reduce from 62\,108 to 12\,273. \texttt{Selected paths: greedy}
+shows the fallback of Sec.~\ref{sec:contraction_paths}: the \(N\pi\) networks
+have more than twelve tensors. The run binds the 58 kernels and two
+perambulators for each time slice and writes one dataset of shape
+\((1, 8, 4, 4)\) per correlator, together with the completion mask.
 
-% Include only after the corresponding pathway is fully validated.
+\subsection{Two nucleons and an exact isospin check}
+\label{sec:example_nn}
+
+Two-baryon operators are products of single-baryon operators with a spin
+coupling, here \(C\gamma_5\) between the open nucleon indices \texttt{s1} and
+\texttt{s2}:
+{\footnotesize
+\begin{verbatim}
+C = spin_matrix("Cg5", "s1", "s2")
+pp  = proton("x", open_spin="s1") \
+      * proton("y", open_spin="s2") * C
+nn0 = (neutron("x", open_spin="s1")
+         * proton("y", open_spin="s2")
+       + proton("x", open_spin="s1")
+         * neutron("y", open_spin="s2")) * C / sqrt(2)
+\end{verbatim}}
+The \(pp\) correlator has 48 Wick terms and the \(I_3=0\) member of the same isospin
+multiplet has 144. When the up and down quarks are bound to the same
+perambulator file, the two correlators must agree configuration by
+configuration, and the antisymmetric combination with \(-\) instead of \(+\) must
+vanish (Sec.~\ref{sec:validation_numerical}). At \(N_v=64\) both relations hold to
+\(6\times10^{-16}\) relative to the \(pp\) correlator on two configurations, which
+checks the sign of every one of the 192 Wick terms of the two-nucleon system. The
+same operators with back-to-back momenta give the 17-operator \(NN\) bases of
+Sec.~\ref{sec:performance}.
+
+\subsection{The triton}
+\label{sec:example_triton}
+
+Three-nucleon operators are written in the same way,
+{\footnotesize
+\begin{verbatim}
+triton = proton("x", open_spin="sN") \
+         * neutron("y", open_spin="s1") \
+         * neutron("z", open_spin="s2") \
+         * spin_matrix("Cg5", "s1", "s2")
+\end{verbatim}}
+and the single correlator has \(5!\,4! = 2880\) Wick terms, all of which are
+connected nine-quark networks. The difficulty is not the Wick contraction but
+the contraction order. With greedy paths the plan for one work unit at
+\(N_v=32\) needs \(2.6\times10^{15}\) FLOPs and a 2.9~TB buffer pool; restricting the
+size of every intermediate to \(10^9\) elements with
+\texttt{contraction.memory\_limit} reduces this to \(2.3\times10^{14}\) FLOPs and
+117~GB, and the \texttt{auto-hq} search to \(2.8\times10^{13}\) FLOPs and 31~GB, which
+runs on a single CPU node (Sec.~\ref{sec:performance}). These numbers are
+available from \texttt{symcorr inspect} before any data are touched, so a user
+can choose the strategy before committing compute time.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Performance Evaluation}
 \label{sec:performance}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Do not write performance claims until controlled benchmarks are available.
+The cost of a distillation calculation is dominated by the contractions, and
+the practical question for a user is how this cost grows when the operator basis
+grows, how much of it \textsc{SymCorr} removes automatically, and what is needed
+to run it. We answer these questions for five two-hadron systems and two light
+nuclei that contain the contraction topologies of Sec.~\ref{sec:topologies}. All
+numbers in this section are measured or taken from the analytical cost report of
+the compiled plan; none is extrapolated.
 
 \subsection{Benchmark setup}
+\label{sec:benchmark_setup}
 
-% Hardware, software versions, precision, operator basis, N_v, time slices,
-% data placement and other parameters required to reproduce each benchmark.
+\paragraph{Lattice data}
+We use one gauge configuration of a locally generated \(N_f=3\) ensemble with
+the parameters of the CLS ensemble A653 (\(\beta=3.34\),
+\(\kappa_{u}=\kappa_d=\kappa_s=0.1365716\)) but a larger time extent,
+\(24^3\times64\). The LapH subspace is spanned by up to 64 eigenvectors of the
+gauge-covariant three-dimensional Laplacian built from stout-smeared links,
+and the light-quark perambulators are available for all 64 source times. For
+the doubly-bottom system we bind the \(b\) quark to a heavy-quark perambulator
+generated on the same configuration for a separate bottomonium study. Flavor
+assignments affect only the Wick structure and the data that are read, so the
+timings do not depend on the physics of these choices.
 
-\subsection{Compilation and planning overhead}
+\paragraph{Operator bases}
+Table~\ref{tab:benchmark_bases} lists the bases. Multi-hadron operators are
+products of separately momentum-projected hadrons at distinct positions with
+back-to-back momenta \(\pm\vec p\) (in units of \(2\pi/L\)); they are not
+projected onto lattice irreducible representations, because a projected operator
+is a fixed linear combination of these and does not change the contraction
+work. For two identical bosons, and for two nucleons coupled with a symmetric or
+antisymmetric spin matrix, the operators with \(\vec p\) and \(-\vec p\) coincide,
+so these bases contain one momentum per pair. The \(N\pi\) basis also contains the
+proton with its third quark transported by one link in each of the six spatial
+directions (Fig.~\ref{fig:displaced_operators}), so gauge links are read and
+transported kernels are built. Every basis of \(N_{\rm op}\) operators defines the
+\(N_{\rm op}\times N_{\rm op}\) correlation matrix, and smaller bases are the
+leading \(N_{\rm op}\) operators of the list.
 
-% Measure symbolic/compilation cost separately from numerical execution.
+\begin{table*}[t]
+\centering
+\caption{Benchmark systems. \(N_{\rm op}\) is the size of the full basis; ``Wick
+terms'' counts the terms of the full correlation matrix after exact cancellation.
+\(\pi^0=(\bar u\gamma_5u-\bar d\gamma_5d)/\sqrt2\), \(\sigma=(\bar uu+\bar dd)/\sqrt2\),
+\(N_{C\gamma_5}=\epsilon_{abc}(u_a^TC\gamma_5d_b)q_c\).}
+\label{tab:benchmark_bases}
+\footnotesize
+\begin{tabular}{@{}lp{0.52\textwidth}rrl@{}}
+\toprule
+System & Operators & \(N_{\rm op}\) & Wick terms & Topologies \\
+\midrule
+\(N\pi\), \(I=\tfrac12\) & \(p\); \(p\) with transported third quark (6); \(\sqrt{2/3}\,n(\vec p)\pi^+(-\vec p)-\sqrt{1/3}\,p(\vec p)\pi^0(-\vec p)\), \(|\vec p|^2\le2\) (19) & 26 & 47\,142 & exchange, equal-time \\
+\(\pi\pi\), \(I=0\) & \(\sigma\); \((\pi^+\pi^-+\pi^-\pi^+-\pi^0\pi^0)/\sqrt3\) at \(\pm\vec p\), \(|\vec p|^2\le4\) (17) & 18 & XX & loops, vacuum \\
+\(bb\bar u\bar d\), \(J^P=1^+\) & \(\epsilon\epsilon\,(b^TC\gamma_3b)(\bar u C\gamma_5\bar d^T)\); \(B B^*(\pm\vec p)\) and \(B^*B^*(\pm\vec p)\), \(|\vec p|^2\le2\) (19 each) & 39 & 11\,858 & local four-quark \\
+\(NN\), \(^1S_0\), \(I=1\) & \(p(\vec p)\,C\gamma_5\,p(-\vec p)\), \(|\vec p|^2\le4\) & 17 & 13\,872 & six-quark exchange \\
+\(NN\), \(^3S_1\), \(I=0\) & \([p(\vec p)\,C\gamma_3\,n(-\vec p)-n(\vec p)\,C\gamma_3\,p(-\vec p)]/\sqrt2\), \(|\vec p|^2\le4\) & 17 & XX & six-quark exchange \\
+\(^3\)H & \(p(x)\,[n(y)\,C\gamma_5\,n(z)]\), \(\vec p=0\) & 1 & 2\,880 & nine-quark exchange \\
+\(^4\)He & \([p(x)\,C\gamma_5\,p(y)]\,[n(z)\,C\gamma_5\,n(w)]\), \(\vec p=0\) & 1 & 518\,400 & twelve-quark exchange \\
+\bottomrule
+\end{tabular}
+\end{table*}
 
-\subsection{Runtime performance}
+\paragraph{Hardware and measurement}
+Plans were compiled single-threaded on an Intel Xeon Gold 6438N. Numerical runs
+used (i) one CPU node with two 32-core Intel Xeon Platinum 8358 processors and
+64 PyTorch threads, and (ii) a workstation GPU, an NVIDIA RTX PRO 2000 Blackwell
+with 16~GB of memory and low double-precision throughput, hosted by an Intel
+Core i9-14900K. Software versions were Python 3.13 and PyTorch 2.13 (CPU) and
+Python 3.12 and PyTorch 2.11 with CUDA 12.8 (GPU), with \texttt{opt\_einsum} 3.4
+and h5py 3.16. All runs use complex128 arithmetic, the DP spin basis, source
+time \(t_0=0\) and the eight sink times \(t=1,\dots,8\), i.e.\ eight work units.
+Times are taken from the run record of \texttt{symcorr run}
+(Sec.~\ref{sec:numerical_execution}); the plan was compiled beforehand and
+compile times are reported separately. We quote the numerical-execution time per
+work unit and, where useful, the throughput defined as the scheduled FLOPs of the
+plan divided by that time.
 
-% Compare meaningful execution paths/reference implementations.
+\subsection{Reuse across a correlation matrix}
+\label{sec:perf_reuse}
 
-\subsection{Memory use}
+Figure~\ref{fig:reuse_scaling} shows how the work grows with the number of
+correlators \(N_{\rm op}^2\) at \(N_v=64\), and Table~\ref{tab:reuse_full} lists the
+full bases. The dashed lines describe evaluating every Wick term as an independent
+tensor network with the same contraction paths; the solid lines describe the
+compiled plan. Three effects are visible.
 
-% Quantify memory reductions or overhead only from measured data.
+First, the number of pairwise contraction steps grows much more slowly than the
+number of term-level steps: for the full bases, 67--82\% of all steps are
+duplicates that are computed once. The removed steps are mostly the cheap ones
+(contractions of spin matrices with perambulators, meson blocks, partial baryon
+blocks), so the FLOP reduction is smaller, a factor 1.7--2.8. The most expensive
+steps of different networks are generally different, because the contraction
+path of each network is chosen separately (Sec.~\ref{sec:limitations}).
 
-\subsection{Scaling}
+Second, the memory reduction is large and grows with the basis. Storing every
+intermediate value of the full \(N\pi\) matrix would require 6.1~TB per work
+unit; the scheduled plan with lifetime-based buffer reuse needs 35~GB at the
+same \(N_v\), a factor 170. For the two-nucleon matrices the factor is
+\(\approx 50\). Unlike the FLOP count, this reduction does not depend on the
+cleverness of the contraction path but only on the schedule.
 
-% Candidate axes: operator-basis size, number of sink times, N_v, CPU/GPU,
-% and eventually multiple devices if supported and tested.
+Third, for systems whose cost is dominated by one expensive operator, adding
+cheap operators is almost free. In the \(bb\bar u\bar d\) basis the local
+diquark--antidiquark operator has a four-index LapH kernel, and its correlator
+alone needs \(2.8\times10^{11}\) FLOPs at \(N_v=64\) (growing as \(N_v^6\) with greedy
+paths), while a meson--meson correlator grows as \(N_v^3\); the 1521 correlators of
+the full basis need only twice the FLOPs of the single local correlator.
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/reuse_scaling.pdf}
+\caption{Compile-time cost report versus the number of correlators
+\(N_{\rm op}^2\) at \(N_v=64\), greedy contraction paths. (a) Pairwise contraction
+steps, (b) contraction FLOPs per work unit, (c) memory. Dashed: every Wick term
+evaluated as an independent network and every intermediate stored. Solid: the
+compiled \textsc{SymCorr} plan after global and partial-intermediate reuse,
+scheduling and buffer reuse (physical peak).}
+\label{fig:reuse_scaling}
+\end{figure*}
+
+\begin{table*}[t]
+\centering
+\caption{Full correlation matrices at \(N_v=64\), greedy contraction paths. Networks and
+steps are given as unique/occurrences. FLOPs and memory per work unit are given
+before \(\to\) after reuse, with the reduction factor in parentheses. Compile time
+on one core.}
+\label{tab:reuse_full}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrrrrllr@{}}
+\toprule
+System & \(N_{\rm op}\) & corr. & Wick terms & networks & steps & FLOPs & memory (GB) & compile (min)\\
+\midrule
+%% BEGIN REUSE_TABLE_ROWS
+$N\pi$, $I=1/2$ & 26 & 676 & 47\,142 & 36457/70588 & 101869/550973 & \(2.29\times10^{14}\)\,\(\to\)\,\(1.38\times10^{14}\) (1.7) & 6085\,\(\to\)\,35.1 (173) & 85 \\
+$\pi\pi$, $I=0$ & 8 & 64 & 9\,770 & 4156/24622 & 16124/48380 & \(2.88\times10^{11}\)\,\(\to\)\,\(1.25\times10^{11}\) (2.3) & 4\,\(\to\)\,1.0 (4) & 3 \\
+$bb\bar u\bar d$ & 39 & 1521 & 11\,858 & 17634/17634 & 33095/169322 & \(1.54\times10^{12}\)\,\(\to\)\,\(5.56\times10^{11}\) (2.8) & 6\,\(\to\)\,1.2 (5) & 4 \\
+$NN$, $^1S_0$ & 17 & 289 & 13\,872 & 13872/13872 & 64576/291312 & \(2.52\times10^{14}\)\,\(\to\)\,\(1.01\times10^{14}\) (2.5) & 2379\,\(\to\)\,51.3 (46) & 6 \\
+$NN$, $^3S_1$ & 7 & 49 & 7\,056 & 7056/7056 & 34054/148176 & \(1.31\times10^{14}\)\,\(\to\)\,\(6.66\times10^{13}\) (2.0) & 1838\,\(\to\)\,29.5 (62) & 3 \\
+%% END REUSE_TABLE_ROWS
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\subsection{Effect of the contraction path}
+\label{sec:perf_paths}
+
+Table~\ref{tab:strategies} compares the path strategies of
+Sec.~\ref{sec:contraction_paths} on one representative basis per system. The
+differences are larger than those from reuse. For a single proton, the greedy
+path forms a larger intermediate; it needs 4.8 times more FLOPs than the exact
+search at every \(N_v\) (both scale as \(N_v^4\)) and 8 times more memory at
+\(N_v=64\); for the \(N\pi\) matrix with seven operators the
+factors are 9.8 and 8. For the two-nucleon matrices \texttt{auto-hq} reduces FLOPs
+by 1.5--2.5 and memory by 2.4--2.6. For the triton the effect decides
+feasibility: at \(N_v=32\) the greedy plan needs \(2.6\times10^{15}\) FLOPs and a 2.9~TB
+buffer pool per work unit, whereas the \texttt{auto-hq} plan needs
+\(2.8\times10^{13}\) FLOPs and 31~GB. Path choice and reuse also interact. For
+\(\pi\pi\) the per-network optimal paths of dynamic programming are cheaper before
+reuse (\(2.83\times10^{11}\) versus \(2.88\times10^{11}\) FLOPs) but share fewer
+intermediates, so after reuse greedy is cheaper (\(1.25\times10^{11}\) versus
+\(1.65\times10^{11}\)); \texttt{reuse-aware} detects this because it compares complete
+plans after reuse. For \(bb\bar u\bar d\) dynamic programming saves 19\% of the
+FLOPs but needs 5.5 times more memory, and \texttt{reuse-aware} keeps the greedy
+plan because of its memory ceiling. The exact searches are more expensive to
+compile and are limited to small networks; \texttt{reuse-aware} therefore falls
+back to greedy paths for the multi-baryon systems, where \texttt{auto-hq} has to
+be requested explicitly.
+
+\begin{table*}[t]
+\centering
+\caption{Contraction-path strategies at fixed basis size: scheduled FLOPs per work
+unit / physical peak memory (GB) / compile time (s). The \texttt{reuse-aware} entry
+equals one of the other columns by construction.}
+\label{tab:strategies}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{@{}lrrllll@{}}
+\toprule
+System & \(N_{\rm op}\) & \(N_v\) & \texttt{greedy} & \texttt{dynamic-programming} & \texttt{auto-hq} & \texttt{reuse-aware} \\
+\midrule
+%% BEGIN STRATEGY_TABLE_ROWS
+$N\pi$ & 1 & 64 & \(2.09\times10^{10}\) / 1.15 / 0 & \(4.33\times10^{9}\) / 0.145 / 0 & \(4.33\times10^{9}\) / 0.145 / 0 & \(4.33\times10^{9}\) / 0.145 / 0 \\
+$N\pi$ & 7 & 64 & \(5.30\times10^{11}\) / 1.6 / 1 & \(5.43\times10^{10}\) / 0.197 / 1 & \(5.43\times10^{10}\) / 0.197 / 1 & \(5.43\times10^{10}\) / 0.197 / 2 \\
+$\pi\pi$ ($I=0$) & 8 & 64 & \(1.25\times10^{11}\) / 0.999 / 172 & \(1.65\times10^{11}\) / 0.28 / 283 & \(1.65\times10^{11}\) / 0.28 / 310 & \(1.25\times10^{11}\) / 0.999 / 298 \\
+$bb\bar u\bar d$ & 8 & 64 & \(3.16\times10^{11}\) / 0.883 / 4 & \(2.56\times10^{11}\) / 4.86 / 10 & \(2.56\times10^{11}\) / 4.86 / 10 & \(3.16\times10^{11}\) / 0.883 / 6 \\
+$NN$ ($^1S_0$) & 4 & 64 & \(6.46\times10^{12}\) / 11.3 / 9 & \(4.59\times10^{12}\) / 4.32 / 404 & \(4.24\times10^{12}\) / 4.28 / 94 & \(6.46\times10^{12}\) / 11.3 / 14 \\
+$NN$ ($^3S_1$) & 2 & 64 & \(6.31\times10^{12}\) / 8.45 / 7 & \(2.92\times10^{12}\) / 3.23 / 223 & \(2.53\times10^{12}\) / 3.56 / 70 & \(6.31\times10^{12}\) / 8.45 / 11 \\
+$^3$H & 1 & 16 & \(2.05\times10^{13}\) / 117 / 74 & -- & -- & -- \\
+$^3$H & 1 & 32 & \(2.65\times10^{15}\) / 2.86e+03 / 74 & -- & \(2.78\times10^{13}\) / 30.5 / 602 & \(2.65\times10^{15}\) / 2.86e+03 / 119 \\
+$^3$H & 1 & 48 & -- & -- & -- & -- \\
+$^3$H & 1 & 64 & \(1.67\times10^{17}\) / 8.02e+04 / 75 & -- & -- & -- \\
+%% END STRATEGY_TABLE_ROWS
+\bottomrule
+\end{tabular}
+\end{table*}
+
+%% RUNTIME_SUBSECTIONS
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Software Availability and Reproducibility}
@@ -2122,33 +2782,114 @@ quantified in Sec.~\ref{sec:performance}.
 
 \subsection{Package and dependencies}
 
-% Repository, license, supported Python/toolchain versions and core dependencies
-% once these are stable for release.
+\textsc{SymCorr} 0.1.0 is a pure Python package (Python \(\ge 3.11\)) available at
+\url{https://github.com/Tanishk-Shrimal/Symcorr}.
+% TODO(authors): choose and add an OSI-approved license (required by CPC); the
+% repository currently has no LICENSE file.
+Its run-time dependencies are NumPy, PyTorch (CPU or CUDA builds), h5py,
+\texttt{opt\_einsum}, Pydantic, PyYAML and Typer; no compiled extension, MPI
+library or vendor-specific GPU code is required. The same package therefore runs on a
+laptop, a CPU cluster node or a CUDA GPU, and the device is selected at run time.
+The repository contains the regression suite (1524 tests), the validation tools
+of Sec.~\ref{sec:validation}, and documentation of the physics conventions
+(spin bases, phase and normalization conventions, storage layouts).
 
 \subsection{User workflow}
 
-% Briefly describe how an operator/correlator calculation is specified and run.
-% Detailed user documentation should remain outside the paper.
+A calculation is specified by two files: a Python file that builds the operators
+and correlators with the symbolic interface of Sec.~\ref{sec:symbolic}, and a
+YAML job file that names the operator factory and its parameters, the lattice
+extents, the compile options (\(N_v\), scalar type, spin basis, contraction
+strategy), the run options (configurations, source and sink times, device, time
+batch size) and the data sources (eigenvectors, smeared gauge links,
+perambulators and their storage layout). The two stages are separate commands:
+{\footnotesize
+\begin{verbatim}
+symcorr plan job.yaml      # compile -> plan.symcorr
+symcorr inspect plan.symcorr --hardware
+symcorr run job.yaml       # execute -> results.h5
+\end{verbatim}}
+\texttt{symcorr plan} needs no lattice data. The portable plan stores the
+compiled execution state together with a fingerprint of the operator source
+(including its local Python helpers), the factory parameters and the compile
+options; data paths, configurations, time contexts and the device are excluded,
+so one plan can be compiled once and run on many configurations and machines.
+\texttt{symcorr inspect} prints the analytical cost report of
+Sec.~\ref{sec:performance} (Wick terms, unique networks and intermediates, FLOPs,
+memory) and, with \texttt{--hardware}, checks the plan against the current device.
+\texttt{symcorr run} rejects a plan whose fingerprint no longer matches the job and
+resumes an interrupted output file.
 
 \subsection{Reproducibility of the results in this work}
 
-% Identify version/tag/commit, example inputs, benchmark scripts and test data
-% needed to reproduce the validation and performance results in the paper.
+All results in this paper were obtained with the \textsc{SymCorr} revision tagged
+% TODO(authors): tag the release commit (currently paper/v1-freeze, 15a68db) and cite it here.
+\texttt{v0.1.0}. The operator definitions, job generators, timing and
+compile-scan drivers and the plotting scripts used for Sec.~\ref{sec:performance}
+are provided in the \texttt{benchmarks/paper} directory of the repository,
+together with the machine-readable run records.
+% TODO(authors): add the benchmark scripts and run records to benchmarks/paper before submission.
+The validation tools and reports
+of Sec.~\ref{sec:validation} are in \texttt{tools/} and \texttt{docs/validation.md}.
+The lattice data used here (eigenvectors, perambulators and smeared gauge
+fields of one configuration) are available from the authors on request.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Limitations and Future Development}
 \label{sec:limitations}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% State current limitations explicitly.
-% Keep a clear distinction between:
-% - implemented and validated functionality;
-% - implemented but still experimental functionality;
-% - planned future work.
-% Possible future topics may include additional operator families,
-% generalized propagation inputs, multi-GPU/distributed execution and further
-% optimization passes, but only if they remain relevant at submission.
+We separate what is validated, what is implemented but not yet validated with
+real data, and what is planned.
 
+\paragraph{Validated scope}
+The validated scope of version 0.1.0 is the content of
+Table~\ref{tab:validation}: single- and two-hadron two-point functions built from
+local, derivative and gauge-transported quark fields in exact distillation,
+baryon and multi-baryon correlators (through independent contractions and exact
+identities), and local closed loops at zero and one unit of momentum.
+
+\paragraph{Implemented, not yet validated}
+Three-point functions with current insertions, generalized (POINT-current)
+propagation resources, disconnected loops with other spin structures, momenta or
+displacements, and displaced baryon legs other than the tested spectator transport
+are implemented and covered by synthetic tests, but have not been compared with
+an independent real-data reference. Temporal derivatives are rejected explicitly.
+
+\paragraph{Algorithmic limitations}
+Contraction paths are chosen per connected network. Cross-correlator reuse is
+therefore found only for intermediates that happen to coincide in the chosen
+trees; Sec.~\ref{sec:performance} shows that this removes two thirds to four fifths
+of the pairwise contraction steps but only 40--65\% of the FLOPs, because the most expensive steps
+of different networks are usually not shared. A path search that targets shared
+hadron blocks across the whole correlation matrix is the most promising extension.
+The exact path searches of the \texttt{reuse-aware} strategy are restricted to
+networks with at most twelve tensors, so multi-baryon calculations currently fall
+back to greedy paths unless \texttt{auto-hq} is requested explicitly. Equalities
+that rely on tensor symmetries or on Hermiticity (for example
+\(C_{12}\) and \(C_{21}\), Sec.~\ref{sec:cross_correlator_isomorphism}) are not
+exploited. Operators whose quarks are all at one point, such as a local six-quark
+operator, lead to rank-six LapH kernels and are impractical in the present exact
+distillation path.
+
+\paragraph{Execution}
+Execution uses one process and one device. Memory not modeled by the plan
+(provider workspaces, library temporaries) is covered by a fixed safety reserve,
+which can be insufficient on small GPUs (Sec.~\ref{sec:performance}). Multi-GPU
+and distributed execution, out-of-core host storage and CPU-thread tuning are not
+implemented.
+
+\paragraph{Future developments}
+Natural extensions that fit the present architecture are: stochastic
+distillation and other sampled LapH-noise estimators, which replace the exact
+perambulator by noise-diluted propagation resources; stochastic estimation of
+disconnected contributions with dedicated variance-reduction techniques;
+optimized distillation profiles, in which the LapH projector is replaced by a
+weighted or operator-dependent combination of eigenvectors; reuse-driven
+contraction-path selection across the correlation matrix; and multi-device
+execution of independent work units.
+
+\fussy
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Conclusions}
 \label{sec:conclusions}
