@@ -2273,7 +2273,7 @@ a separate Chroma data set.
 \subsection{Symbolic and Wick-contraction tests}
 \label{sec:validation_symbolic}
 
-The portable regression suite (1524 tests) exercises the symbolic layer
+The portable regression suite (1524 tests, of which six require a CUDA device) exercises the symbolic layer
 directly: flavor-compatible pairings, the permutation-parity sign of every
 pairing, the coefficients of linear combinations, exact cancellation of terms
 with identical canonical form and opposite coefficients, the normalization of
@@ -2628,10 +2628,10 @@ terms'' counts the terms of the full correlation matrix after exact cancellation
 System & Operators & \(N_{\rm op}\) & Wick terms & Topologies \\
 \midrule
 \(N\pi\), \(I=\tfrac12\) & \(p\); \(p\) with transported third quark (6); \(\sqrt{2/3}\,n(\vec p)\pi^+(-\vec p)-\sqrt{1/3}\,p(\vec p)\pi^0(-\vec p)\), \(|\vec p|^2\le2\) (19) & 26 & 47\,142 & exchange, equal-time \\
-\(\pi\pi\), \(I=0\) & \(\sigma\); \((\pi^+\pi^-+\pi^-\pi^+-\pi^0\pi^0)/\sqrt3\) at \(\pm\vec p\), \(|\vec p|^2\le4\) (17) & 18 & XX & loops, vacuum \\
+\(\pi\pi\), \(I=0\) & \(\sigma\); \((\pi^+\pi^-+\pi^-\pi^+-\pi^0\pi^0)/\sqrt3\) at \(\pm\vec p\), \(|\vec p|^2\le4\) (17) & 18 & 60\,410 & loops, vacuum \\
 \(bb\bar u\bar d\), \(J^P=1^+\) & \(\epsilon\epsilon\,(b^TC\gamma_3b)(\bar u C\gamma_5\bar d^T)\); \(B B^*(\pm\vec p)\) and \(B^*B^*(\pm\vec p)\), \(|\vec p|^2\le2\) (19 each) & 39 & 11\,858 & local four-quark \\
 \(NN\), \(^1S_0\), \(I=1\) & \(p(\vec p)\,C\gamma_5\,p(-\vec p)\), \(|\vec p|^2\le4\) & 17 & 13\,872 & six-quark exchange \\
-\(NN\), \(^3S_1\), \(I=0\) & \([p(\vec p)\,C\gamma_3\,n(-\vec p)-n(\vec p)\,C\gamma_3\,p(-\vec p)]/\sqrt2\), \(|\vec p|^2\le4\) & 17 & XX & six-quark exchange \\
+\(NN\), \(^3S_1\), \(I=0\) & \([p(\vec p)\,C\gamma_3\,n(-\vec p)-n(\vec p)\,C\gamma_3\,p(-\vec p)]/\sqrt2\), \(|\vec p|^2\le4\) & 17 & 41\,616 & six-quark exchange \\
 \(^3\)H & \(p(x)\,[n(y)\,C\gamma_5\,n(z)]\), \(\vec p=0\) & 1 & 2\,880 & nine-quark exchange \\
 \(^4\)He & \([p(x)\,C\gamma_5\,p(y)]\,[n(z)\,C\gamma_5\,n(w)]\), \(\vec p=0\) & 1 & 518\,400 & twelve-quark exchange \\
 \bottomrule
@@ -2673,8 +2673,8 @@ path of each network is chosen separately (Sec.~\ref{sec:limitations}).
 Second, the memory reduction is large and grows with the basis. Storing every
 intermediate value of the full \(N\pi\) matrix would require 6.1~TB per work
 unit; the scheduled plan with lifetime-based buffer reuse needs 35~GB at the
-same \(N_v\), a factor 170. For the two-nucleon matrices the factor is
-\(\approx 50\). Unlike the FLOP count, this reduction does not depend on the
+same \(N_v\), a factor 170. For the two-nucleon matrices the factors are 46
+(\(^1S_0\)) and 101 (\(^3S_1\)). Unlike the FLOP count, this reduction does not depend on the
 cleverness of the contraction path but only on the schedule.
 
 Third, for systems whose cost is dominated by one expensive operator, adding
@@ -2711,10 +2711,10 @@ System & \(N_{\rm op}\) & corr. & Wick terms & networks & steps & FLOPs & memory
 \midrule
 %% BEGIN REUSE_TABLE_ROWS
 $N\pi$, $I=1/2$ & 26 & 676 & 47\,142 & 36457/70588 & 101869/550973 & \(2.29\times10^{14}\)\,\(\to\)\,\(1.38\times10^{14}\) (1.7) & 6085\,\(\to\)\,35.1 (173) & 85 \\
-$\pi\pi$, $I=0$ & 8 & 64 & 9\,770 & 4156/24622 & 16124/48380 & \(2.88\times10^{11}\)\,\(\to\)\,\(1.25\times10^{11}\) (2.3) & 4\,\(\to\)\,1.0 (4) & 3 \\
+$\pi\pi$, $I=0$ & 18 & 324 & 60\,410 & 25716/142062 & 99672/308260 & \(1.86\times10^{12}\)\,\(\to\)\,\(7.92\times10^{11}\) (2.4) & 24\,\(\to\)\,5.3 (5) & 132 \\
 $bb\bar u\bar d$ & 39 & 1521 & 11\,858 & 17634/17634 & 33095/169322 & \(1.54\times10^{12}\)\,\(\to\)\,\(5.56\times10^{11}\) (2.8) & 6\,\(\to\)\,1.2 (5) & 4 \\
 $NN$, $^1S_0$ & 17 & 289 & 13\,872 & 13872/13872 & 64576/291312 & \(2.52\times10^{14}\)\,\(\to\)\,\(1.01\times10^{14}\) (2.5) & 2379\,\(\to\)\,51.3 (46) & 6 \\
-$NN$, $^3S_1$ & 7 & 49 & 7\,056 & 7056/7056 & 34054/148176 & \(1.31\times10^{14}\)\,\(\to\)\,\(6.66\times10^{13}\) (2.0) & 1838\,\(\to\)\,29.5 (62) & 3 \\
+$NN$, $^3S_1$ & 17 & 289 & 41\,616 & 41616/41616 & 200794/873936 & \(7.84\times10^{14}\)\,\(\to\)\,\(3.81\times10^{14}\) (2.1) & 9809\,\(\to\)\,96.9 (101) & 54 \\
 %% END REUSE_TABLE_ROWS
 \bottomrule
 \end{tabular}
@@ -2764,10 +2764,10 @@ $\pi\pi$ ($I=0$) & 8 & 64 & \(1.25\times10^{11}\) / 0.999 / 172 & \(1.65\times10
 $bb\bar u\bar d$ & 8 & 64 & \(3.16\times10^{11}\) / 0.883 / 4 & \(2.56\times10^{11}\) / 4.86 / 10 & \(2.56\times10^{11}\) / 4.86 / 10 & \(3.16\times10^{11}\) / 0.883 / 6 \\
 $NN$ ($^1S_0$) & 4 & 64 & \(6.46\times10^{12}\) / 11.3 / 9 & \(4.59\times10^{12}\) / 4.32 / 404 & \(4.24\times10^{12}\) / 4.28 / 94 & \(6.46\times10^{12}\) / 11.3 / 14 \\
 $NN$ ($^3S_1$) & 2 & 64 & \(6.31\times10^{12}\) / 8.45 / 7 & \(2.92\times10^{12}\) / 3.23 / 223 & \(2.53\times10^{12}\) / 3.56 / 70 & \(6.31\times10^{12}\) / 8.45 / 11 \\
-$^3$H & 1 & 16 & \(2.05\times10^{13}\) / 117 / 74 & -- & -- & -- \\
+$^3$H & 1 & 16 & \(2.05\times10^{13}\) / 117 / 74 & -- & \(4.70\times10^{11}\) / 2.25 / 611 & -- \\
 $^3$H & 1 & 32 & \(2.65\times10^{15}\) / 2.86e+03 / 74 & -- & \(2.78\times10^{13}\) / 30.5 / 602 & \(2.65\times10^{15}\) / 2.86e+03 / 119 \\
-$^3$H & 1 & 48 & -- & -- & -- & -- \\
-$^3$H & 1 & 64 & \(1.67\times10^{17}\) / 8.02e+04 / 75 & -- & -- & -- \\
+$^3$H & 1 & 48 & -- & -- & \(2.66\times10^{14}\) / 127 / 612 & -- \\
+$^3$H & 1 & 64 & \(1.67\times10^{17}\) / 8.02e+04 / 75 & -- & \(1.49\times10^{15}\) / 407 / 604 & -- \\
 %% END STRATEGY_TABLE_ROWS
 \bottomrule
 \end{tabular}
