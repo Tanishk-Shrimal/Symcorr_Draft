@@ -15,6 +15,19 @@
 \usepackage{subcaption}
 \usepackage{verbatim}
 \usepackage[section]{placeins}
+\usepackage{stfloats}
+
+% Forward the CAS figure placement to the two-column float handler.
+\makeatletter
+\let\symcorr@dbflt\@dbflt
+\def\@dbflt#1{%
+  \ifstrequal{#1}{figure}
+    {\@ifnextchar[{\@xdblfloat{#1}}{%
+      \edef\reserved@a{\noexpand\@xdblfloat{#1}[\fps@figure]}%
+      \reserved@a}}
+    {\symcorr@dbflt{#1}}%
+}
+\makeatother
 
 \def\tsc#1{\csdef{#1}{\textsc{\lowercase{#1}}\xspace}}
 \tsc{WGM}
@@ -91,33 +104,13 @@ The emphasis of the \textsc{SymCorr} package is on having a complete automated t
 \label{sec:background}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\textsc{SymCorr} package facilitates the computation of Euclidean correlation matrices in the distillation framework, serving itself as a generalized automated platform in computation of arbitrary multi-hadron correlation matrices in finite-volume, with the assumption that the relevant lattice numerical data and the operator basis details are provided by the user. We begin this section by briefly discussing numerical objects relevant for the distillation framework for completeness. In the conventional non-distillation setup, the measurements involve computation of correlation matrices given in Eq. \ref{eq:2ptCfn} for a given operator basis and varying values of $t$ and $t_0$. These involve appropriate tensor index contractions between spatial-color-spin indices of the hadron interpolators with those in the quark line objects referred to as the quark propagators. 
 
-The computational cost of such tensor index contractions spanning through the space-color-spin index values ($\mathcal{O}(10^6)$ for a $40^3$ spatial lattice) can become prohibitively expensive when then system being studied is large or complex such as multi-hadron operators, tetraquarks, pentaquarks, nuclei, etc. In the distillation framework, the combined space-color index is replaced by a single index, which could run over a appropriately chosen eigenmode subset of discretized gauge-covariant Laplacian $\{v^{(i)}(t)\}$. Such a replacement can be facilitated through quark smearing program defined in terms of $\{v^{(i)}(t)\}$ as 
-\begin{align}
-\tilde q(t)=\Box(t)q(t), &\qquad   
-\tilde{\bar q}(t)=\bar q(t)\Box(t), \nonumber \\
-\mbox{~~where ~~~} \Box(t)&=V(t)V^\dagger(t) = \sum_{i=1}^{N_v}|v^{(i)}><v^{(i)}|(t),  \nonumber \\ 
-\mbox{~and ~~~} V(t)&=\left(v^{(1)}(t),v^{(2)}(t),\ldots,v^{(N_v)}(t)\right).
-\end{align}
-The $\Box(t)$ operator acts as a low pass filter or a projection operator, with the lowest $N_v$ modes. Inserting such projection operators for the quark fields in the conventional correlations, followed regrouping the objects to form new objects such as 
-\begin{align}
-\tau_f(t,t_0) &= V^\dagger(t) M_f^{-1}(t,t_0) V(t_0) \\ 
-\Phi_{\mathcal{O}}(t)&= V^\dagger(t)\,\mathcal{O}\,V(t).
-\end{align}
-referred to as the perambulators and elementals/kernels, which takes over the information from the quark propagator $M_f^{-1}(t,t_0)$ and hadronic operator $\Phi_A(t)$, respectively. The objects $\tau_f(t,t_0)$ and $\Phi_{\mathcal{O}}$ carry indices running of the $N_v\sim100-1000$ modes considered facilitating contractions of tensor indices with reduced computational cost. This novel procedure was not only found to reduce the computational cost requirement involved in tensor contractions, but also found to provide access to all-to-all quark propagators, to source momentum projection in hadron operator, multi-hadron operators, etc. The expensive quark-propagation information can be prepared independently of a particular spectroscopy operator basis, while changes to momenta, spin structures, or spatial constructions modify the operator-dependent factors. Within the distillation framework, the correlation matrix elements can be written in a compact form as 
-\begin{equation}
-C_{ij}(t,t_0)= \sum_{\alpha} c_{\alpha}\,\operatorname{Contr}_{\alpha}\left[\{\Phi\},\{\tau\}\right],
-\label{eq:distillation_contraction_schematic}
-\end{equation}
-where $\alpha$ runs over the Wick-contractions ``$\operatorname{Contr}_{\alpha}\left[...\right]$'' and $c_{\alpha}$ carries the
-associated numerical coefficient and the fermionic sign. 
 
-The \textsc{SymCorr} package is designed to separate the physical definition and representation of correlation measurements from the details of their numerical evaluation. The user-provided interpolators determine the Wick contractions and their representation in the distillation space, as illustrated schematically in Eq.~\ref{eq:distillation_contraction_schematic}, while the subsequent numerical procedures, including tensor contractions, redundancy optimizations to avoid repetitive evaluations, memory (de)allocation, and data reuse, are handled by the \textsc{SymCorr} backend. The physics-level description of the measurements are preserved at every stage of the \textsc{SymCorr} flowchart to facilitate user-end as well as backend verifications and troubleshooting, while the numerical tensor objects and operations remain blind to the physics that is aimed at. The correlation matrix evaluation is treated within the \textsc{SymCorr} package as a single structured computational problem,  instead of compiling every matrix element as an independent numerical program. This helps in identifying similar algebraic expressions as well as redundant mathematical work across the full calculation and thus providing efficient choices for tensor contraction ordering and data reuse, enabling an optimized workflow. Following the optimization aprogram t the algebraic as well numerical level, \textsc{SymCorr} also makes educated decisions at the execution stage in regrouping calculations to utilize the provided the hardware resources to its maximum potential. All optimizations, at the algebraic, numerical, and execution stages, are handled by the \textsc{SymCorr} backend while preserving the underlying physics information. This shields non-expert users from the complexities of optimization, while still giving expert users full freedom to inspect the practical implementation and numerical performance. 
+\textsc{SymCorr} package facilitates the computation of Euclidean correlation matrices in the distillation framework, serving itself as a generalized automated platform in computation of arbitrary multi-hadron correlation matrices in finite-volume, with the assumption that the relevant lattice numerical data and the operator basis details are provided by the user. We begin this section by briefly discussing numerical objects relevant for the distillation framework for completeness. In the conventional non-distillation setup, the measurements involve computation of correlation matrices given in Eq. \ref{eq:2ptCfn} for a given operator basis and varying values of $t$ and $t_0$. These involve appropriate tensor index contractions between spatial-color-spin indices of the hadron interpolators with those in the quark line objects referred to as the quark propagators.
 
-\begin{figure}[tbh!]
+\begin{figure}[pos=!hb]
 \centering
-\resizebox{\columnwidth}{!}{%
+\resizebox{0.90\columnwidth}{!}{%
 \begin{tikzpicture}[
     font=\small,
     stage/.style={draw, rounded corners=2pt, align=center, text width=#1,
@@ -184,6 +177,30 @@ stout-smeared spatial links used for the Laplacian eigenvectors) and the availab
 hardware enter only at run time.}
 \label{fig:symcorr_workflow}
 \end{figure}
+
+The computational cost of such tensor index contractions spanning through the space-color-spin index values ($\mathcal{O}(10^6)$ for a $40^3$ spatial lattice) can become prohibitively expensive when then system being studied is large or complex such as multi-hadron operators, tetraquarks, pentaquarks, nuclei, etc. In the distillation framework, the combined space-color index is replaced by a single index, which could run over a appropriately chosen eigenmode subset of discretized gauge-covariant Laplacian $\{v^{(i)}(t)\}$. Such a replacement can be facilitated through quark smearing program defined in terms of $\{v^{(i)}(t)\}$ as
+\begin{align}
+\tilde q(t)=\Box(t)q(t), &\qquad
+\tilde{\bar q}(t)=\bar q(t)\Box(t), \nonumber \\
+\mbox{~~where ~~~} \Box(t)&=V(t)V^\dagger(t) = \sum_{i=1}^{N_v}|v^{(i)}><v^{(i)}|(t),  \nonumber \\
+\mbox{~and ~~~} V(t)&=\left(v^{(1)}(t),v^{(2)}(t),\ldots,v^{(N_v)}(t)\right).
+\end{align}
+The $\Box(t)$ operator acts as a low pass filter or a projection operator, with the lowest $N_v$ modes. Inserting such projection operators for the quark fields in the conventional correlations, followed regrouping the objects to form new objects such as
+\begin{align}
+\tau_f(t,t_0) &= V^\dagger(t) M_f^{-1}(t,t_0) V(t_0) \\
+\Phi_{\mathcal{O}}(t)&= V^\dagger(t)\,\mathcal{O}\,V(t).
+\end{align}
+referred to as the perambulators and elementals/kernels, which takes over the information from the quark propagator $M_f^{-1}(t,t_0)$ and hadronic operator $\Phi_A(t)$, respectively. The objects $\tau_f(t,t_0)$ and $\Phi_{\mathcal{O}}$ carry indices running of the $N_v\sim100-1000$ modes considered facilitating contractions of tensor indices with reduced computational cost. This novel procedure was not only found to reduce the computational cost requirement involved in tensor contractions, but also found to provide access to all-to-all quark propagators, to source momentum projection in hadron operator, multi-hadron operators, etc. The expensive quark-propagation information can be prepared independently of a particular spectroscopy operator basis, while changes to momenta, spin structures, or spatial constructions modify the operator-dependent factors. Within the distillation framework, the correlation matrix elements can be written in a compact form as
+\begin{equation}
+C_{ij}(t,t_0)= \sum_{\alpha} c_{\alpha}\,\operatorname{Contr}_{\alpha}\left[\{\Phi\},\{\tau\}\right],
+\label{eq:distillation_contraction_schematic}
+\end{equation}
+where $\alpha$ runs over the Wick-contractions ``$\operatorname{Contr}_{\alpha}\left[...\right]$'' and $c_{\alpha}$ carries the
+associated numerical coefficient and the fermionic sign.
+
+The \textsc{SymCorr} package is designed to separate the physical definition and representation of correlation measurements from the details of their numerical evaluation. The user-provided interpolators determine the Wick contractions and their representation in the distillation space, as illustrated schematically in Eq.~\ref{eq:distillation_contraction_schematic}, while the subsequent numerical procedures, including tensor contractions, redundancy optimizations to avoid repetitive evaluations, memory (de)allocation, and data reuse, are handled by the \textsc{SymCorr} backend. The physics-level description of the measurements are preserved at every stage of the \textsc{SymCorr} flowchart to facilitate user-end as well as backend verifications and troubleshooting, while the numerical tensor objects and operations remain blind to the physics that is aimed at. The correlation matrix evaluation is treated within the \textsc{SymCorr} package as a single structured computational problem,  instead of compiling every matrix element as an independent numerical program. This helps in identifying similar algebraic expressions as well as redundant mathematical work across the full calculation and thus providing efficient choices for tensor contraction ordering and data reuse, enabling an optimized workflow. Following the optimization aprogram t the algebraic as well numerical level, \textsc{SymCorr} also makes educated decisions at the execution stage in regrouping calculations to utilize the provided the hardware resources to its maximum potential. All optimizations, at the algebraic, numerical, and execution stages, are handled by the \textsc{SymCorr} backend while preserving the underlying physics information. This shields non-expert users from the complexities of optimization, while still giving expert users full freedom to inspect the practical implementation and numerical performance.
+
+
 
 We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. The user provides the interpolator basis in symbolic form (Sec.~\ref{sec:symbolic}) together with a job specification that fixes the lattice dimensions, the number of distillation modes, the spin basis, the data locations, and the source and sink times. The calculation then proceeds in two stages. The compile stage uses only the symbolic operators and the compile settings. Linear combinations of operators are expanded into basis correlators, and all quark-line pairings (Wick contractions), their fermionic signs, and their coefficients are generated for every element of the correlation matrix (Sec.~\ref{sec:wick}). The resulting expressions are lowered to the distillation framework, where each Wick term becomes a tensor network of operator-dependent spatial kernels, propagation (perambulator) resources, and spin tensors (Sec.~\ref{sec:distillation_lowering}). All tensor networks of the requested correlation matrix are then treated as one global contraction problem: identical resources and identical contraction networks are shared across Wick terms and matrix elements, exactly equal terms are combined, a contraction order is chosen, shared intermediates are identified, and the operations are scheduled together with a plan for reusing memory buffers (Sec.~\ref{sec:execution}). The result is saved as a portable plan that depends neither on lattice data nor on hardware. In the run stage, the saved plan is first checked against the current operator definitions and job specification. \textsc{SymCorr} then chooses a CPU or GPU deployment and a memory-compatible batching of time slices for the available hardware, reads the Laplacian eigenvectors $\{v^{(i)}(t)\}$, the perambulators $\tau_f(t,t_0)$ and, for derivative or displaced operators, the gauge configuration in the form of the stout-smeared spatial links used to construct the eigenvectors, builds the required kernels and propagation tensors, and executes the frozen plan for every gauge configuration and time context. The correlation functions are written to an HDF5 file; a record of the run and a human-readable report can be produced on request. 
 
@@ -261,76 +278,7 @@ two_meson_local = Operator(  dbar("x", "a", "alpha")
 \end{verbatim}
 Note that in the above construction there are two color singlet quark bilinears forming two independent mesons both featuring in the same locality group leading to a single momentum assignment for the entire structure. 
 
-Spatially extended operators can be built by augmenting relevant constituent elementary field as argument to the operator objects: \texttt{shift}, \texttt{transport}, and \texttt{derivative}. Below are three examples of simple meson operators (projected to zero momentum) with nontrivial spatial structures. First one is $\mathcal{O}_{M_1}=\bar d(x)\gamma_5\nabla_{x}(u(x))$ that features a symmetric derivative in the $x$ direction and the corresponding symbolic expression is given by 
-\begin{verbatim}
-mesondx = Operator(  dbar("x", "a", "al")
-                   * gamma5("al", "be")
-                   * derivative(u("x", "a", "be"),"+x",),
-                   momentum=(0, 0, 0),)
-\end{verbatim}
-\tikzset{
-  site/.style={circle, draw, fill=white, inner sep=1.4pt},
-  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
-  link/.style={very thick, -{Latex[length=1.8mm]}},
-  lbl/.style={font=\scriptsize},
-}
-\begin{center}
-\begin{tikzpicture}
-  \draw[black!35] (-1.6,0) -- (1.6,0);
-  \node[qsite] (m) at (-1.2,0) {}; \node[site] (o) at (0,0) {}; \node[qsite] (p) at (1.2,0) {};
-  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
-  \draw[link] (o) -- node[lbl, above] {$U_x^\dagger(x-\hat x)$} (m);
-  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
-  \node[lbl, below=2pt] at (p) {$+\tfrac12\,u$};
-  \node[lbl, below=2pt] at (m) {$-\tfrac12\,u$};
-\end{tikzpicture}
-\end{center}
-Second operator features a forward gauge-covariant transport along $x$-direction of the $u$-quark field $\mathcal{O}_{M_2}=\bar d(x)\gamma_5U_i(x)$ $u(x+\hat i)$ and the associated symbolic expression is given by
-\begin{verbatim}
-mesontx = Operator(  dbar("x", "a", "al")
-                   * gamma5("al", "be")
-                   * transport(u("x", "a", "be"),"+x",),
-                   momentum=(0, 0, 0),)
-\end{verbatim}
-\tikzset{
-  site/.style={circle, draw, fill=white, inner sep=1.4pt},
-  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
-  link/.style={very thick, -{Latex[length=1.8mm]}},
-  lbl/.style={font=\scriptsize},
-}
-\begin{center}
-\begin{tikzpicture}
-  \node[site] (o) at (0,0) {}; \node[qsite] (r) at (1.3,0) {};
-  \draw[link] (o) -- node[lbl, below] {$U_i(x)$} (r);
-  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
-  \node[lbl, right=2pt] at (r) {$u(x{+}\hat i)$};
-\end{tikzpicture}
-\end{center}
-Third operator is a complexified version of second featuring forward gauge-covariant transport along $x$ and $y$ directions of the $u$-quark field $\mathcal{O}_{M_3}=\bar d(x)\gamma_5U_j(x+\hat i)U_i(x)u(x+\hat i+\hat j)$ and the associated symbolic expression can be given as 
-\begin{verbatim}
-mesontxy = Operator(  dbar("x", "a", "al")
-                    * gamma5("al", "be")
-                    * transport(u("x", "a", "be"),"+x","+y",),
-                    momentum=(0, 0, 0),)
-\end{verbatim}
-\tikzset{
-  site/.style={circle, draw, fill=white, inner sep=1.4pt},
-  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
-  link/.style={very thick, -{Latex[length=1.8mm]}},
-  lbl/.style={font=\scriptsize},
-}
-\begin{center}
-\begin{tikzpicture}
-  \node[site] (o) at (0,0) {}; \node[site] (r) at (1.3,0) {}; \node[qsite] (ru) at (1.3,1.0) {};
-  \draw[link] (o) -- node[lbl, below] {$U_i(x)$} (r);
-  \draw[link] (r) -- node[lbl, right] {$U_j(x{+}\hat i)$} (ru);
-  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
-  \node[lbl, left=2pt] at (ru) {$u(x{+}\hat i{+}\hat j)$};
-\end{tikzpicture}
-\end{center}
-Note the arguments related to the directions in \texttt{transport} follows the order from left to the right. Similarly, explicit gauge links and other color structures can also be introduced as factors in the expression.
-
-\begin{figure*}[t]
+\begin{figure*}[pos=!tbp]
 \centering
 \tikzset{
   site/.style={circle, draw, fill=white, inner sep=1.4pt},
@@ -424,6 +372,79 @@ links of the gauge configuration. These three channels, together with the pion o
 one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-LapH in Sec.~\ref{sec:validation}.}
 \label{fig:displaced_operators}
 \end{figure*}
+
+Spatially extended operators can be built by augmenting relevant constituent elementary field as argument to the operator objects: \texttt{shift}, \texttt{transport}, and \texttt{derivative}. Below are three examples of simple meson operators (projected to zero momentum) with nontrivial spatial structures. First one is $\mathcal{O}_{M_1}=\bar d(x)\gamma_5\nabla_{x}(u(x))$ that features a symmetric derivative in the $x$ direction and the corresponding symbolic expression is given by
+\begin{verbatim}
+mesondx = Operator(  dbar("x", "a", "al")
+                   * gamma5("al", "be")
+                   * derivative(u("x", "a", "be"),"+x",),
+                   momentum=(0, 0, 0),)
+\end{verbatim}
+\tikzset{
+  site/.style={circle, draw, fill=white, inner sep=1.4pt},
+  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
+  link/.style={very thick, -{Latex[length=1.8mm]}},
+  lbl/.style={font=\scriptsize},
+}
+\begin{center}
+\begin{tikzpicture}
+  \draw[black!35] (-1.6,0) -- (1.6,0);
+  \node[qsite] (m) at (-1.2,0) {}; \node[site] (o) at (0,0) {}; \node[qsite] (p) at (1.2,0) {};
+  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
+  \draw[link] (o) -- node[lbl, above] {$U_x^\dagger(x-\hat x)$} (m);
+  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+  \node[lbl, below=2pt] at (p) {$+\tfrac12\,u$};
+  \node[lbl, below=2pt] at (m) {$-\tfrac12\,u$};
+\end{tikzpicture}
+\end{center}
+Second operator features a forward gauge-covariant transport along $x$-direction of the $u$-quark field $\mathcal{O}_{M_2}=\bar d(x)\gamma_5U_i(x)$ $u(x+\hat i)$ and the associated symbolic expression is given by
+\begin{verbatim}
+mesontx = Operator(  dbar("x", "a", "al")
+                   * gamma5("al", "be")
+                   * transport(u("x", "a", "be"),"+x",),
+                   momentum=(0, 0, 0),)
+\end{verbatim}
+\tikzset{
+  site/.style={circle, draw, fill=white, inner sep=1.4pt},
+  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
+  link/.style={very thick, -{Latex[length=1.8mm]}},
+  lbl/.style={font=\scriptsize},
+}
+\begin{center}
+\begin{tikzpicture}
+  \node[site] (o) at (0,0) {}; \node[qsite] (r) at (1.3,0) {};
+  \draw[link] (o) -- node[lbl, below] {$U_i(x)$} (r);
+  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+  \node[lbl, right=2pt] at (r) {$u(x{+}\hat i)$};
+\end{tikzpicture}
+\end{center}
+Third operator is a complexified version of second featuring forward gauge-covariant transport along $x$ and $y$ directions of the $u$-quark field $\mathcal{O}_{M_3}=\bar d(x)\gamma_5U_j(x+\hat i)U_i(x)u(x+\hat i+\hat j)$ and the associated symbolic expression can be given as
+\begin{verbatim}
+mesontxy = Operator(  dbar("x", "a", "al")
+                    * gamma5("al", "be")
+                    * transport(u("x", "a", "be"),"+x","+y",),
+                    momentum=(0, 0, 0),)
+\end{verbatim}
+\tikzset{
+  site/.style={circle, draw, fill=white, inner sep=1.4pt},
+  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
+  link/.style={very thick, -{Latex[length=1.8mm]}},
+  lbl/.style={font=\scriptsize},
+}
+\begin{center}
+\begin{tikzpicture}
+  \node[site] (o) at (0,0) {}; \node[site] (r) at (1.3,0) {}; \node[qsite] (ru) at (1.3,1.0) {};
+  \draw[link] (o) -- node[lbl, below] {$U_i(x)$} (r);
+  \draw[link] (r) -- node[lbl, right] {$U_j(x{+}\hat i)$} (ru);
+  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+  \node[lbl, left=2pt] at (ru) {$u(x{+}\hat i{+}\hat j)$};
+\end{tikzpicture}
+\end{center}
+Note the arguments related to the directions in \texttt{transport} follows the order from left to the right. Similarly, explicit gauge links and other color structures can also be introduced as factors in the expression.
+
+
+
+\FloatBarrier
 
 Composite operators such as bilocal or multilocal operators could be built as products of simpler structures. Let $H_1(\mathbf p_1)$ and $H_2(\mathbf p_2)$ be independently defined operators with distinct momentum assignments, their product is given by $\mathcal O_{12} = H_1(\mathbf p_1)\,H_2(\mathbf p_2)$, where $\mathbf P=\mathbf p_1+\mathbf p_2$ is the total three-momentum of the operator $\mathcal O_{12}$. In the symbolic form, individual expressions for mesons can be concatenated to form the composite operator expression either explicitly or implicitly. In the latter strategy, one defines individual mesons as  
 \begin{verbatim}
@@ -639,7 +660,7 @@ quark lines all connect source and sink, terms that contain equal-time lines, an
 terms with closed loops. The relative signs and the subsequent tensor-network construction follow
 from the same rules for all of them.
 
-\begin{figure*}[tp]
+\begin{figure*}[pos=!tbp]
 \centering
 \begin{tikzpicture}[
     hadron/.style={ellipse, draw, fill=black!12, minimum width=0.34cm, minimum height=0.62cm, inner sep=0pt},
@@ -1334,25 +1355,7 @@ A central capability of the \textsc{SymCorr} framework is the identification and
 \subsubsection{Graph representation of hadron contractions: The proton example}
 \label{sec:graph_rep_proton}
 
-To illustrate the graph formulation concretely, consider the rest-frame, positive-parity nucleon (proton) interpolating operator,
-\begin{equation}
-\mathcal O_N(t) = \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t),
-\label{eq:proton_interpolator_def}
-\end{equation}
-where \(C = \gamma_2\gamma_4\) is the charge-conjugation matrix, \(\epsilon_{abc}\) is the totally antisymmetric \(SU(3)\) color tensor, and \(P_+ = \frac{1}{2}(\mathbb I + \gamma_4)\) is the positive-parity energy projector. The corresponding Euclidean two-point correlation function is
-\begin{equation}
-C_{NN}(t, t_0) = \left\langle \mathcal O_N(t) \, \overline{\mathcal O}_N(t_0) \right\rangle,
-\label{eq:proton_correlator_def}
-\end{equation}
-where \(\overline{\mathcal O}_N(t_0) = \mathcal O_N(t_0)^\dagger \gamma_4\) denotes the adjoint source operator.
-
-Because the proton contains two valence up quarks of identical flavor, Wick's theorem generates two distinct contraction terms (\(N_u! \times N_d! = 2! \times 1! = 2\)):
-\begin{enumerate}
-    \item \textbf{Direct term}: with fermionic permutation sign \(+1\), where up quark~1 at the source propagates into up quark~1 inside the sink diquark, while up quark~2 propagates as the spectator quark.
-    \item \textbf{Exchange term}: with fermionic permutation sign \(-1\), where the two up-quark lines cross: up quark~1 at the source propagates into the sink spectator, while up quark~2 propagates into the sink diquark.
-\end{enumerate}
-
-\begin{figure*}[tp]
+\begin{figure*}[pos=!b]
 \centering
 \begin{subfigure}[b]{0.48\textwidth}
 \centering
@@ -1502,6 +1505,26 @@ Because the proton contains two valence up quarks of identical flavor, Wick's th
 \label{fig:proton_graphs_comparison}
 \end{figure*}
 
+To illustrate the graph formulation concretely, consider the rest-frame, positive-parity nucleon (proton) interpolating operator,
+\begin{equation}
+\mathcal O_N(t) = \epsilon_{abc} \left[ u^a(t)^\top C\gamma_5 d^b(t) \right] P_+ u^c(t),
+\label{eq:proton_interpolator_def}
+\end{equation}
+where \(C = \gamma_2\gamma_4\) is the charge-conjugation matrix, \(\epsilon_{abc}\) is the totally antisymmetric \(SU(3)\) color tensor, and \(P_+ = \frac{1}{2}(\mathbb I + \gamma_4)\) is the positive-parity energy projector. The corresponding Euclidean two-point correlation function is
+\begin{equation}
+C_{NN}(t, t_0) = \left\langle \mathcal O_N(t) \, \overline{\mathcal O}_N(t_0) \right\rangle,
+\label{eq:proton_correlator_def}
+\end{equation}
+where \(\overline{\mathcal O}_N(t_0) = \mathcal O_N(t_0)^\dagger \gamma_4\) denotes the adjoint source operator.
+
+Because the proton contains two valence up quarks of identical flavor, Wick's theorem generates two distinct contraction terms (\(N_u! \times N_d! = 2! \times 1! = 2\)):
+\begin{enumerate}
+    \item \textbf{Direct term}: with fermionic permutation sign \(+1\), where up quark~1 at the source propagates into up quark~1 inside the sink diquark, while up quark~2 propagates as the spectator quark.
+    \item \textbf{Exchange term}: with fermionic permutation sign \(-1\), where the two up-quark lines cross: up quark~1 at the source propagates into the sink spectator, while up quark~2 propagates into the sink diquark.
+\end{enumerate}
+
+
+
 In \textsc{SymCorr}, each Wick term is converted into an explicit tensor network graph (\texttt{WickContractionGraph}), displayed schematically in Fig.~\ref{fig:proton_graphs_comparison}.
 \begin{itemize}
     \item \textbf{Nodes}: Each graph contains 12 primitive tensor nodes:
@@ -1512,6 +1535,8 @@ In \textsc{SymCorr}, each Wick term is converted into an explicit tensor network
     \end{itemize}
     \item \textbf{Edges}: Edges correspond to contracted dummy indices (degree~2). A mode edge connects a perambulator mode port to a baryon kernel mode port. A spin edge connects a perambulator spin port to a Dirac matrix.
 \end{itemize}
+
+\FloatBarrier
 
 \subsubsection{Identifier taxonomy in the compiler}
 \label{sec:identifier_taxonomy}
@@ -2002,25 +2027,7 @@ check, and the triton.
 \subsection{A nucleon--pion correlation matrix}
 \label{sec:example_npi}
 
-The \(I=\tfrac12\), \(I_3=+\tfrac12\) nucleon--pion basis of
-Table~\ref{tab:benchmark_bases} combines a local proton, six proton operators with
-a gauge-transported third quark and the two-hadron operators
-\begin{equation}
-(N\pi)_{\vec p} = \sqrt{2/3}\;n(\vec p)\,\pi^+(-\vec p)-\sqrt{1/3}\;p(\vec p)\,\pi^0(-\vec p).
-\end{equation}
-Using
-small helper functions for the hadrons (with the conventions of
-Sec.~\ref{sec:symbolic}), the operator file and the job file are shown in
-Fig.~\ref{fig:npi_job}. The helpers \texttt{pi\_plus} and \texttt{pi\_zero} return
-\(\bar d\gamma_5u\) and \((\bar u\gamma_5u-\bar d\gamma_5d)/\sqrt2\) at the given
-position and momentum, and the open nucleon spin index \texttt{sN} becomes a
-\(4\times4\) output axis of every correlator. Index labels only need to be distinct
-within one operator (the pion helpers use their own labels); every insertion of
-an operator into a correlator is renamed into a separate namespace. In the job
-file, \texttt{\{configuration\}} and \texttt{\{source\_time\}} are expanded per work
-unit.
-
-\begin{figure*}[t]
+\begin{figure*}[pos=!b]
 \centering
 \begin{minipage}[t]{0.48\textwidth}
 \footnotesize
@@ -2094,6 +2101,26 @@ data:
 \label{fig:npi_job}
 \end{figure*}
 
+The \(I=\tfrac12\), \(I_3=+\tfrac12\) nucleon--pion basis of
+Table~\ref{tab:benchmark_bases} combines a local proton, six proton operators with
+a gauge-transported third quark and the two-hadron operators
+\begin{equation}
+(N\pi)_{\vec p} = \sqrt{2/3}\;n(\vec p)\,\pi^+(-\vec p)-\sqrt{1/3}\;p(\vec p)\,\pi^0(-\vec p).
+\end{equation}
+Using
+small helper functions for the hadrons (with the conventions of
+Sec.~\ref{sec:symbolic}), the operator file and the job file are shown in
+Fig.~\ref{fig:npi_job}. The helpers \texttt{pi\_plus} and \texttt{pi\_zero} return
+\(\bar d\gamma_5u\) and \((\bar u\gamma_5u-\bar d\gamma_5d)/\sqrt2\) at the given
+position and momentum, and the open nucleon spin index \texttt{sN} becomes a
+\(4\times4\) output axis of every correlator. Index labels only need to be distinct
+within one operator (the pion helpers use their own labels); every insertion of
+an operator into a correlator is renamed into a separate namespace. In the job
+file, \texttt{\{configuration\}} and \texttt{\{source\_time\}} are expanded per work
+unit.
+
+
+
 The gauge links are needed only because of the transported quark. Because
 \(\pi^0\) contains \(\bar uu\) and \(\bar dd\) at one point, some Wick terms
 contain propagation from a time slice to itself, so the perambulators are read in
@@ -2120,6 +2147,8 @@ shows the fallback of Sec.~\ref{sec:contraction_paths}: the \(N\pi\) networks
 have more than twelve tensors. The run binds the 58 kernels and two
 perambulators for each time slice and writes one dataset of shape
 \((1, 8, 4, 4)\) per correlator, together with the completion mask.
+
+\FloatBarrier
 
 \subsection{Two nucleons and an exact isospin check}
 \label{sec:example_nn}
@@ -2255,6 +2284,18 @@ plan divided by that time.
 \subsection{Reuse across a correlation matrix}
 \label{sec:perf_reuse}
 
+\begin{figure*}[pos=!b]
+\centering
+\includegraphics[width=\textwidth]{figures/reuse_scaling.pdf}
+\caption{Compile-time cost report versus the number of correlators
+\(N_{\rm op}^2\) at \(N_v=64\), greedy contraction paths. (a) Pairwise contraction
+steps, (b) contraction FLOPs per work unit, (c) memory. Dashed: every Wick term
+evaluated as an independent network and every intermediate stored. Solid: the
+compiled \textsc{SymCorr} plan after global and partial-intermediate reuse,
+scheduling and buffer reuse (physical peak).}
+\label{fig:reuse_scaling}
+\end{figure*}
+
 Figure~\ref{fig:reuse_scaling} shows how the work grows with the number of
 correlators \(N_{\rm op}^2\) at \(N_v=64\), and Table~\ref{tab:reuse_full} lists the
 full bases. The dashed lines describe evaluating every Wick term as an independent
@@ -2283,17 +2324,7 @@ alone needs \(2.8\times10^{11}\) FLOPs at \(N_v=64\) (growing as \(N_v^6\) with 
 paths), while a meson--meson correlator grows as \(N_v^3\); the 1521 correlators of
 the full basis need only twice the FLOPs of the single local correlator.
 
-\begin{figure*}[t]
-\centering
-\includegraphics[width=\textwidth]{figures/reuse_scaling.pdf}
-\caption{Compile-time cost report versus the number of correlators
-\(N_{\rm op}^2\) at \(N_v=64\), greedy contraction paths. (a) Pairwise contraction
-steps, (b) contraction FLOPs per work unit, (c) memory. Dashed: every Wick term
-evaluated as an independent network and every intermediate stored. Solid: the
-compiled \textsc{SymCorr} plan after global and partial-intermediate reuse,
-scheduling and buffer reuse (physical peak).}
-\label{fig:reuse_scaling}
-\end{figure*}
+
 
 \begin{table*}[t]
 \centering
@@ -2318,6 +2349,8 @@ $NN$, $^3S_1$ & 17 & 289 & 41\,616 & 41616/41616 & 200794/873936 & \(7.84\times1
 \bottomrule
 \end{tabular}
 \end{table*}
+
+\FloatBarrier
 
 \subsection{Effect of the contraction path}
 \label{sec:perf_paths}
