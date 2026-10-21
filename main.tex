@@ -254,7 +254,7 @@ proton = build_baryon_operator(
          ["u", "d", "u"], "Cg5",
          momentum=(0, 0, 0),)
 \end{verbatim}
-More complex local hadron operators can further be constructed from these elementary objects and constructions. A local scalar diquark-antidiquark structure representing a compact tetraquark operator can then be represented as
+More complex local hadron operators can further be constructed from these elementary objects and constructions. A local scalar diquark-antidiquark structure representing a compact tetraquark operator can then be represented as\\
 \begin{verbatim}
 dqadq_local = Operator(  epsilon("a", "b", "e") 
                        * u("x", "a", "alpha") 
@@ -278,100 +278,100 @@ two_meson_local = Operator(  dbar("x", "a", "alpha")
 \end{verbatim}
 Note that in the above construction there are two color singlet quark bilinears forming two independent mesons both featuring in the same locality group leading to a single momentum assignment for the entire structure. 
 
-\begin{figure*}[pos=!tbp]
-\centering
-\tikzset{
-  site/.style={circle, draw, fill=white, inner sep=1.4pt},
-  qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
-  link/.style={very thick, -{Latex[length=1.8mm]}},
-  lbl/.style={font=\scriptsize},
-}
-\begin{minipage}[t]{0.32\textwidth}
-\footnotesize
-\begin{verbatim}
-pion_dx = Operator(
-    dbar("x", "a", "alpha")
-    * gamma5("alpha", "beta")
-    * derivative(
-        u("x", "a", "beta"), "+x"),
-    momentum=(0, 0, 0),
-)
-\end{verbatim}
-\vspace{-2mm}
-\[
-\mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,(\nabla_x u)(x)
-\]
-\centering
-\begin{tikzpicture}
-  \draw[black!35] (-1.6,0) -- (1.6,0);
-  \node[qsite] (m) at (-1.2,0) {}; \node[site] (o) at (0,0) {}; \node[qsite] (p) at (1.2,0) {};
-  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
-  \draw[link] (o) -- node[lbl, above] {$U_x^\dagger(x-\hat x)$} (m);
-  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
-  \node[lbl, below=2pt] at (p) {$+\tfrac12\,u$};
-  \node[lbl, below=2pt] at (m) {$-\tfrac12\,u$};
-\end{tikzpicture}
-\par\smallskip (a) derivative $\nabla_x$
-\end{minipage}\hfill
-\begin{minipage}[t]{0.32\textwidth}
-\footnotesize
-\begin{verbatim}
-pion_txy = Operator(
-    dbar("x", "a", "alpha")
-    * gamma5("alpha", "beta")
-    * transport(
-        u("x", "a", "beta"), "+x", "+y"),
-    momentum=(0, 0, 0),
-)
-\end{verbatim}
-\vspace{-2mm}
-\[
-\mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,U_x(x)U_y(x{+}\hat x)\,u(x{+}\hat x{+}\hat y)
-\]
-\centering
-\begin{tikzpicture}
-  \node[site] (o) at (0,0) {}; \node[site] (r) at (1.3,0) {}; \node[qsite] (ru) at (1.3,1.0) {};
-  \draw[link] (o) -- node[lbl, below] {$U_x(x)$} (r);
-  \draw[link] (r) -- node[lbl, right] {$U_y(x{+}\hat x)$} (ru);
-  \node[lbl, below=2pt] at (o) {$\bar d(x)$};
-  \node[lbl, left=2pt] at (ru) {$u(x{+}\hat x{+}\hat y)$};
-\end{tikzpicture}
-\par\smallskip (b) ordered path $(+x,+y)$
-\end{minipage}\hfill
-\begin{minipage}[t]{0.32\textwidth}
-\footnotesize
-\begin{verbatim}
-proton_tx = Operator(
-    epsilon("a", "b", "c")
-    * spin_matrix("Cg5", "alpha", "beta")
-    * u("x", "a", "alpha")
-    * d("x", "b", "beta")
-    * transport(u("x", "c", "delta"), "+x"),
-    momentum=(0, 0, 0),
-)
-\end{verbatim}
-\vspace{-2mm}
-\[
-\mathcal O_\delta(t)=\sum_{\mathbf x}\epsilon_{abc}\,(u_a^\top C\gamma_5 d_b)(x)\,
-\big[U_x(x)\,u(x{+}\hat x)\big]_{c\delta}
-\]
-\centering
-\begin{tikzpicture}
-  \node[site, minimum size=9pt] (o) at (0,0) {}; \node[qsite] (p) at (1.3,0) {};
-  \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
-  \node[lbl, below=2pt] at (o) {$(u^\top C\gamma_5 d)(x)$};
-  \node[lbl, below=2pt] at (p) {$u(x{+}\hat x)$};
-\end{tikzpicture}
-\par\smallskip (c) spectator-displaced proton
-\end{minipage}
-\caption{Derivative and displaced operators in the \textsc{SymCorr} language (top), the operators
-they define (middle), and the lattice structure (bottom; open circles mark the position $x$ of the
-undisplaced fields, filled circles the displaced quark, arrows the gauge links in the order of the
-path). The conventions are those of Eq.~\eqref{eq:transport_conventions}; $U$ are the stout-smeared
-links of the gauge configuration. These three channels, together with the pion operators with $\nabla_y$, $\nabla_z$ and the
-one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-LapH in Sec.~\ref{sec:validation}.}
-\label{fig:displaced_operators}
-\end{figure*}
+% \begin{figure*}[pos=!tbp]
+% \centering
+% \tikzset{
+%   site/.style={circle, draw, fill=white, inner sep=1.4pt},
+%   qsite/.style={circle, draw, fill=black, inner sep=1.4pt},
+%   link/.style={very thick, -{Latex[length=1.8mm]}},
+%   lbl/.style={font=\scriptsize},
+% }
+% \begin{minipage}[t]{0.32\textwidth}
+% \footnotesize
+% \begin{verbatim}
+% pion_dx = Operator(
+%     dbar("x", "a", "alpha")
+%     * gamma5("alpha", "beta")
+%     * derivative(
+%         u("x", "a", "beta"), "+x"),
+%     momentum=(0, 0, 0),
+% )
+% \end{verbatim}
+% \vspace{-2mm}
+% \[
+% \mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,(\nabla_x u)(x)
+% \]
+% \centering
+% \begin{tikzpicture}
+%   \draw[black!35] (-1.6,0) -- (1.6,0);
+%   \node[qsite] (m) at (-1.2,0) {}; \node[site] (o) at (0,0) {}; \node[qsite] (p) at (1.2,0) {};
+%   \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
+%   \draw[link] (o) -- node[lbl, above] {$U_x^\dagger(x-\hat x)$} (m);
+%   \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+%   \node[lbl, below=2pt] at (p) {$+\tfrac12\,u$};
+%   \node[lbl, below=2pt] at (m) {$-\tfrac12\,u$};
+% \end{tikzpicture}
+% \par\smallskip (a) derivative $\nabla_x$
+% \end{minipage}\hfill
+% \begin{minipage}[t]{0.32\textwidth}
+% \footnotesize
+% \begin{verbatim}
+% pion_txy = Operator(
+%     dbar("x", "a", "alpha")
+%     * gamma5("alpha", "beta")
+%     * transport(
+%         u("x", "a", "beta"), "+x", "+y"),
+%     momentum=(0, 0, 0),
+% )
+% \end{verbatim}
+% \vspace{-2mm}
+% \[
+% \mathcal O(t)=\sum_{\mathbf x}\bar d(x)\,\gamma_5\,U_x(x)U_y(x{+}\hat x)\,u(x{+}\hat x{+}\hat y)
+% \]
+% \centering
+% \begin{tikzpicture}
+%   \node[site] (o) at (0,0) {}; \node[site] (r) at (1.3,0) {}; \node[qsite] (ru) at (1.3,1.0) {};
+%   \draw[link] (o) -- node[lbl, below] {$U_x(x)$} (r);
+%   \draw[link] (r) -- node[lbl, right] {$U_y(x{+}\hat x)$} (ru);
+%   \node[lbl, below=2pt] at (o) {$\bar d(x)$};
+%   \node[lbl, left=2pt] at (ru) {$u(x{+}\hat x{+}\hat y)$};
+% \end{tikzpicture}
+% \par\smallskip (b) ordered path $(+x,+y)$
+% \end{minipage}\hfill
+% \begin{minipage}[t]{0.32\textwidth}
+% \footnotesize
+% \begin{verbatim}
+% proton_tx = Operator(
+%     epsilon("a", "b", "c")
+%     * spin_matrix("Cg5", "alpha", "beta")
+%     * u("x", "a", "alpha")
+%     * d("x", "b", "beta")
+%     * transport(u("x", "c", "delta"), "+x"),
+%     momentum=(0, 0, 0),
+% )
+% \end{verbatim}
+% \vspace{-2mm}
+% \[
+% \mathcal O_\delta(t)=\sum_{\mathbf x}\epsilon_{abc}\,(u_a^\top C\gamma_5 d_b)(x)\,
+% \big[U_x(x)\,u(x{+}\hat x)\big]_{c\delta}
+% \]
+% \centering
+% \begin{tikzpicture}
+%   \node[site, minimum size=9pt] (o) at (0,0) {}; \node[qsite] (p) at (1.3,0) {};
+%   \draw[link] (o) -- node[lbl, above] {$U_x(x)$} (p);
+%   \node[lbl, below=2pt] at (o) {$(u^\top C\gamma_5 d)(x)$};
+%   \node[lbl, below=2pt] at (p) {$u(x{+}\hat x)$};
+% \end{tikzpicture}
+% \par\smallskip (c) spectator-displaced proton
+% \end{minipage}
+% \caption{Derivative and displaced operators in the \textsc{SymCorr} language (top), the operators
+% they define (middle), and the lattice structure (bottom; open circles mark the position $x$ of the
+% undisplaced fields, filled circles the displaced quark, arrows the gauge links in the order of the
+% path). The conventions are those of Eq.~\eqref{eq:transport_conventions}; $U$ are the stout-smeared
+% links of the gauge configuration. These three channels, together with the pion operators with $\nabla_y$, $\nabla_z$ and the
+% one-link transports $T_{+x}$, $T_{+y}$, $T_{+z}$, are validated against Chroma-LapH in Sec.~\ref{sec:validation}.}
+% \label{fig:displaced_operators}
+% \end{figure*}
 
 Spatially extended operators can be built by augmenting relevant constituent elementary field as argument to the operator objects: \texttt{shift}, \texttt{transport}, and \texttt{derivative}. Below are three examples of simple meson operators (projected to zero momentum) with nontrivial spatial structures. First one is $\mathcal{O}_{M_1}=\bar d(x)\gamma_5\nabla_{x}(u(x))$ that features a symmetric derivative in the $x$ direction and the corresponding symbolic expression is given by
 \begin{verbatim}
@@ -480,185 +480,15 @@ where the individual mesons fall into separate locality groups represented by $x
 Another important feature supported by the package is the construction of complete composite operators, which are typically linear combinations various expressions $\mathcal O =\sum_i c_i\,\mathcal O_i$. Addition, subtraction, scalar multiplication, and products of simpler expressions are also accepted as user-defined operator expressions, facilitating such composite operator expression representations. Hermitian conjugation acts on the full symbolic construction, combined with a reversed sign for all the associated momenta. Thus, upon Hermitian conjugation of $\mathcal O$, the fermionic field order in each $\mathcal O_i$ is reversed and each field object in $\mathcal O_i$ is conjugated according to its symbolic rule. Whereas for a linear combination, the coefficients $c_i$ are complex conjugated and each basis operator $\mathcal O_i$ is Hermitian conjugated following the rule for product operator. These operations allow a source operator to be derived from a sink definition without manually reconstructing its field ordering, spin structure, or momentum orientation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Quark propagation and Wick contraction}
+\section{Quark propagation and Wick contractions}
 \label{sec:wick}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Following the user-input of interpolator basis, symbolic representation of the correlation matrix to be evaluated is instantiated, then all allowed quark propagations are identified, thereafter the correlation matrix is reformed in terms of quark lines or quark propagators. To this end, the operator linear combinations are expanded to build a new correlation matrix for an expanded definite basis of single term operator expressions. This expanded basis aids in identifying redundancies and optimizing evaluation cost and the final correlation matrix in the original basis will be reconstructed at a later stage after symbolic and numerical optimization as well as evaluation stages. The next stage in \texttt{SymCorr} is in determining all allowed combinatorial pairing of quark-antiquark pairs for every quark flavor appearing in each of the correlation matrix element in the larger definite basis. For each quark flavor, the number of quark fields should be same as the number of antiquark fields in any given correlation matrix element considered. If this condition fails for any flavor, no contraction term would be evaluated for that matrix element. 
+Following the user-input of interpolator basis, symbolic representation of the correlation matrix to be evaluated is instantiated, then all allowed quark propagations are identified, thereafter the correlation matrix is reformed in terms of quark lines or quark propagators. To this end, the operator linear combinations are expanded to build a new correlation matrix for an expanded definite basis of single term operator expressions. This expanded basis aids in identifying redundancies and optimizing evaluation cost and the final correlation matrix in the original basis will be reconstructed at a later stage after symbolic and numerical optimization as well as evaluation stages. The next stage in \textsc{SymCorr} is in determining all allowed combinatorial pairing of quark-antiquark pairs for every quark flavor appearing in each of the correlation matrix element in the larger definite basis. For each quark flavor, the number of quark fields should be same as the number of antiquark fields in any given correlation matrix element considered. If this condition fails for any flavor, no contraction term would be evaluated for that matrix element. 
 
 Once the quark-antiquark field balance is ensured for each flavor, every bijection between the quark and antiquark fields of the each flavor is identified. $n_{\rm f}$ quark fields of a given flavor leads to $n_{\rm f}!$ possible pairings. Since the choices for different flavors are independent, the complete set of flavor-compatible pairings is given by $N_{\rm pair}=\prod_{\rm f} n_{\rm f}!$. Note that all quark-antiquark fields bijections generated are based on the flavor information explicitly specified in the elementary quark field objects that compose the hadronic operator. For example, $u$ and $d$ remain distinct quark flavors at this stage, even if isospin is assumed to be a good symmetry leading to the use of same light quark propagator/perambulator for either flavors at a later stage of the evaluation. Pairing of quark and antiquark fields of the same flavor when both occur on the same side of a two-point function or within the same composite insertion is also considered as a valid bijection. Retaining all allowed possibilities is necessary to realize the correlations, which may include closed quark loops or disconnected or mixed contraction topologies, to project the desired quantum numbers correctly. All admissible field pairings determined at this stage are retained explicitly and are passed on to the next stage discussed below. 
 
-Complete tensor connection within each admissible field pairing leads to a diagram, which is referred to as a Wick contraction diagram and is associated with a unique relative sign. For a given Wick contraction, this sign is fixed by the number parity of the fermionic field reordering required to arrive at the corresponding pairing expression from the original symbolic correlation matrix element. Other tensor objects such as spin matrices, color structures and spatial transformations within the correlation matrix element remain part of the correlator expression, and do not contribute to the fermion permutation signature. Consider a correlation matrix element with $N$ quark fields and thus $N$ antiquark fields, with the original user-defined fermionic field order $F$. For each given Wick contraction associated with the correlation matrix element, \texttt{SymCorr} builds the fermionic field ordering in which each quark is placed immediately left to its paired antiquark, for example
-\begin{equation}
-F_{\mathcal P} =(q_{i_1},\bar q_{j_1},\ldots, q_{i_N},\bar q_{j_N}).
-\end{equation}
-The fermion permutation sign is given by $s_{\mathcal P}=(-1)^{I(\mathcal P)}$, the number parity of fermion field permutations that maps the original field ordering $F$ to the paired ordering $F_{\mathcal P}$. 
-
-We demonstrate this exercise with a simple example of correlation function with four fermion fields. Suppose the original fermionic order is $F=(q_1,\,q_2,\,\bar q_1,\,\bar q_2)$. For the pairing $(q_1,\bar q_1), (q_2,\bar q_2)$, the paired sequence corresponds to $F_{\mathcal P} =(q_{1},\bar q_{1},q_{2},\bar q_{2})$. Mapping $F$ to $F_{\mathcal P}$ involves one permutation and hence has sign -1. The only other admissible pairing $(q_1,\bar q_2), (q_2,\bar q_1)$, the pairing sequence $F_{\mathcal P} =(q_{1},\bar q_{2},q_{2},\bar q_{1})$. In this case, mapping $F$ to $F_{\mathcal P}$ requires two fermion field permutation and hence has sign +1. 
-
-Each Wick contraction, within a correlation matrix element, comes also with an algebraic coefficient $c_{\mathcal P}$, which might be originating from the coefficients in the operator linear combinations within in the user-defined basis. These factors are appropriately combined into the coefficient multiplying the logical correlator $c_{\mathcal P}^{\rm full}=s_{\mathcal P}\,c_{\mathcal P}$. Note that the sign and the algebraic coefficients are kept as separate pieces of the Wick contraction. This aids in making the origin of permutation sign traceable and thus
-inspectable. 
-
-\subsection{Canonicalization and symbolic simplification}
-
-Canonicalization in SymCorr is used to identify symbolic descriptions that are
-mathematically equivalent under rules that are explicit in the implementation.
-It is not used to guess additional field-theory identities. In particular, the
-frontend retains the expression exactly as supplied by the user, while a
-separate structural identity removes dependence on arbitrary dummy-index names.
-Contracted (dummy) spin, color, and position labels are renamed
-deterministically, and the momentum map is transformed through the same
-position-label mapping. Open indices keep their names, so that, for example, an
-operator and its transpose in two open spin indices remain distinct. Ordered
-factor structure, flavor, transformations, and momentum values remain part of
-the operator identity, whereas user metadata is treated as annotation rather
-than symbolic physics.
-
-A second canonicalization step occurs at the compiler boundary before Wick
-contraction. Field-operation chains are normalized without mutating the
-frontend operator. For pure coordinate shifts and gauge-covariant parallel
-transport, adjacent inverse lattice hops cancel. For example,
-
-\begin{equation}
-(+x,-x,+y)\longrightarrow(+y).
-\label{eq:path_canonicalization}
-\end{equation}
-
-Nested field operations are then fused into a compiler-internal composite
-operation that preserves their order. Other primitive operations are retained
-unchanged by this pass, and the operator momentum assignments and metadata are
-copied to the normalized compiler-side representation.
-
-This normalization is deliberately performed before linear-combination terms
-are merged. Two frontend operators can therefore remain visibly different as
-user objects yet become the same compiler basis operator when, for example,
-their transport paths differ only by adjacent inverse hops. Once normalized,
-weights multiplying identical ordered basis-operator tuples are added, and a
-basis term is removed only when its weight cancels exactly; no numerical
-tolerance is applied. For a two-point correlation matrix, the corresponding
-simplification pass performs the same coefficient aggregation separately within
-each matrix element for identical normalized sink--source basis pairs.
-
-The same normalized operator identity is also used at the Wick-cache boundary.
-The cache key is the complete ordered tuple of basis-operator insertions rather
-than an unordered set. Consequently, repeated occurrences of the same
-normalized symbolic correlator can reuse an already generated Wick expansion,
-while a physically different operator ordering remains a distinct contraction
-problem. This reuse avoids repeated symbolic work but does not alter the set of
-Wick pairings or their fermionic signs.
-
-The scope of these transformations is intentionally restricted. The pre-Wick
-normalizer does not commute or reorder fermion factors, replace spin or color
-structures using additional identities, infer cyclic trace equivalences, or
-simplify expressions using numerical tensor values. Such transformations could
-change the field ordering or require assumptions that belong to later compiler
-representations. At this stage SymCorr therefore applies only the
-canonicalization rules for which equivalence is explicit in the symbolic
-algebra.
-
-There is a separate simplification mechanism later in the compilation pipeline,
-after the Wick terms have been lowered to numerical contraction graphs. At that
-stage exact global common-subexpression analysis can canonicalize reusable
-tensor-network components and combine exactly equal complete Wick terms within
-a correlator. Like the pre-Wick weights, the later complete-term aggregation removes only
-exactly cancelling coefficients, and it does so only for scalar terms. Keeping these two stages distinct avoids
-conflating symbolic algebra with numerical contraction reuse; the latter is
-discussed in Sec.~\ref{sec:execution}.
-
-\subsection{Output of the contraction stage}
-
-For each normalized basis correlator, the Wick engine returns an ordered
-collection of symbolic Wick terms. A convenient schematic description of one
-such term is
-
-\begin{equation}
-W_\alpha
-=
-\left(
- s_\alpha,
- c_\alpha,
- \mathcal P_\alpha,
- \mathcal E_\alpha,
- \mathcal C_\alpha
-\right),
-\label{eq:wick_term_contents}
-\end{equation}
-
-where \(s_\alpha\) is the fermionic sign, \(c_\alpha\) is the algebraic
-coefficient, \(\mathcal P_\alpha\) is the explicit set of paired quark and
-antiquark fields, \(\mathcal E_\alpha\) is the contracted symbolic expression,
-and \(\mathcal C_\alpha\) records the locality-graph components inferred from
-the pairing. These quantities remain symbolic: no perambulator, distillation
-kernel, tensor shape, external file, memory buffer, or execution device has yet
-been introduced.
-
-The pairing \(\mathcal P_\alpha\) is retained directly rather than being
-recoverable only from a printed algebraic expression. Each entry identifies the
-quark endpoint and the antiquark endpoint of one logical propagation line,
-including their flavor and symbolic spin, color, and position labels. This
-explicit pairing is the authoritative input used by the next compiler boundary
-to construct logical quark lines. It also retains the information needed to
-associate field-level derivatives, transports, shifts, and spatial
-representations with the correct endpoints.
-
-The symbolic expression \(\mathcal E_\alpha\) retains the non-fermionic tensor
-content inherited from the original operators and represents contracted quark
-lines symbolically. In particular, spin matrices, color tensors, gauge-link
-objects, and their index connectivity remain visible rather than being replaced
-by numerical arrays at the Wick stage. The later physics-lowering pass reads
-these symbolic tensors and the explicit pairing together; it does not infer the
-quark-line topology from numerical tensor shapes.
-
-In addition to the algebraic term, SymCorr computes a locality graph from the
-pairing. Position labels form the graph vertices and a contracted quark line
-connects the position labels of its two endpoints. Each resulting graph
-component records both the locality labels that it contains and the operator
-insertions touched by those labels. The present Wick-level topology label is a
-coarse diagnostic: a term is classified as \emph{disconnected} when all
-components are local to individual operator insertions, \emph{connected} when
-there are spanning components and no purely local component, and \emph{mixed}
-when spanning and local components occur together. This terminology does not
-assert that the complete numerical tensor network consists of one connected
-component.
-
-For composite operators, the same component records provide an additional
-structural diagnostic. The current \texttt{factorized} property is true when no
-locality component spans more than two operator insertions; a component touching
-more than two insertions marks a multi-operator exchange structure. This
-information is useful for inspecting the generated Wick terms, but it is kept
-separate from later numerical common-subexpression analysis and contraction
-planning.
-
-When a basis correlator originates from a linear combination, its previously
-computed complex basis weight is applied to the Wick-term coefficient while the
-cached sign, pairing, expression, and component structure remain unchanged. The
-next lowering step then combines sign and coefficient and translates each Wick
-term into a backend-independent logical correlator. In the current PhysicsIR,
-the resulting records contain logical quark lines, spin tensors, color tensors,
-gauge tensors, field-operation information, and momentum assignments. The
-Wick-level locality-component and topology diagnostics are not part of this
-PhysicsIR data contract.
-
-This boundary is important because it marks the end of the purely symbolic Wick
-problem. By the time a term leaves this stage, SymCorr has fixed which fermion
-fields contract, the associated Grassmann sign, the algebraic weight, and the
-symbolic operator structures that accompany those propagation lines. The next
-stage may reorganize this information into backend-independent physics records,
-but it is not permitted to invent a new pairing or reinterpret the fermionic
-sign.
-
-\subsection{Contraction topologies}
-\label{sec:topologies}
-
-Because the pairing search is complete within each flavor and is not restricted to source--sink
-lines, every quark-flow topology allowed by the flavor content of the operators is generated
-automatically; no diagram is entered by hand or selected by the user. This includes quark lines
-that start and end on the same time slice and closed quark loops. Representative diagrams are
-shown in Fig.~\ref{fig:topologies}, and Table~\ref{tab:topology_counts} lists the number of Wick
-terms that \textsc{SymCorr} generates for representative operators, separated into terms whose
-quark lines all connect source and sink, terms that contain equal-time lines, and disconnected
-terms with closed loops. The relative signs and the subsequent tensor-network construction follow
-from the same rules for all of them.
+Complete tensor connection within each admissible field pairing leads to a diagram, which is referred to as a Wick contraction diagram and is associated with a unique relative sign $s_{\mathcal P}$ and an algebraic coefficient $c_{\mathcal P}$. Representative Wick contractions are shown in Fig.~\ref{fig:topologies}, and Table~\ref{tab:topology_counts} lists the number of Wick contractions that \textsc{SymCorr} generates for various representative operators, separated into terms whose quark lines all connect source and sink, terms that contain equal-time lines, and disconnected terms with closed loops. The relative signs and the subsequent tensor-network construction follow from the same rules for all of them.
 
 \begin{figure*}[pos=!tbp]
 \centering
@@ -758,25 +588,13 @@ from the same rules for all of them.
     \node[pcap] at (1.3,-1.8) {(h) two baryons, direct};
   \end{scope}
 \end{tikzpicture}
-\caption{Representative quark-flow topologies generated by \textsc{SymCorr}. Ellipses are
-hadron operators at the source time $t_0$ (left) and the sink time $t$ (right); arrows follow
-quark propagation. (a) Single meson. (b) Disconnected term of a flavor-diagonal meson with a
-closed quark loop at each time. (c, d) Direct and exchange terms of the proton. (e) Two mesons
-with crossed lines. (f) Two mesons with one equal-time line at each time (rectangle). (g) Baryon
-and meson with equal-time lines. (h) Two separately projected baryons. All terms of a correlator,
-including the remaining exchanges, are enumerated automatically; Table~\ref{tab:topology_counts}
-gives the counts.}
+\caption{Representative quark-flow topologies, or Wick contraction diagrams, generated by \textsc{SymCorr}. Ellipses are hadron operators with definite momentum at the source time $t_0$ (left) and the sink time $t$ (right); arrows follow quark propagation. (a) Single meson. (b) Disconnected Wick contraction diagram in a meson operator $\bar uu$ with quark self-annihilating loops at the source and at the sink timeslice. (c, d) Direct and exchange Wick contractions of the proton. (e) Two mesons with crossed lines. (f) Two mesons with one equal-time quark propagation at each end. (g) Baryon and meson with equal-time quark propagation. (h) Two separately propagating baryons. Table~\ref{tab:topology_counts} gives further details.}
 \label{fig:topologies}
 \end{figure*}
 
 \begin{table}[tbp]
 \centering
-\caption{Number of Wick terms generated by \textsc{SymCorr} for $C(t,t_0)=\langle\mathcal O(t)\,\mathcal O^\dagger(t_0)\rangle$,
-separated into terms whose quark lines all connect source and sink (src--snk), connected terms
-containing equal-time lines, and disconnected terms with closed loops. The operators are
-$\pi^+=\bar d\gamma_5 u$, $\bar u u$, $p=\epsilon_{abc}(u_a^\top C\gamma_5 d_b)u_c$ and
-$\Delta^{++}=\epsilon_{abc}(u_a^\top C\gamma_i u_b)u_c$; two-meson and two-baryon operators are
-products of separately projected hadrons, and $p\pi^+$ is local.}
+\caption{Number of Wick terms generated by \textsc{SymCorr} for $C(t,t_0)=\langle\mathcal O(t)\,\mathcal O^\dagger(t_0)\rangle$, separated into terms whose quark lines all connect source and sink (src--snk), connected terms containing equal-time lines, and disconnected terms with closed loops. The operators are $\pi^+=\bar d\gamma_5 u$, $\bar u u$, $p=\epsilon_{abc}(u_a^\top C\gamma_5 d_b)u_c$ and $\Delta^{++}=\epsilon_{abc}(u_a^\top C\gamma_i u_b)u_c$; two-meson and two-baryon operators are products of separately projected hadrons, and $p\pi^+$ is local.}
 \label{tab:topology_counts}
 \small
 \setlength{\tabcolsep}{5pt}
@@ -796,12 +614,65 @@ $pp$ ($I{=}1$, ${}^1S_0$) & 48 & 48 & 0 & 0 \\
 \end{tabular}
 \end{table}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Lowering to the Distillation Representation}
+For a given Wick contraction, the relative sign $s_{\mathcal P}$ is fixed by the number parity of the fermionic field reordering required to arrive at the corresponding pairing expression from the original symbolic correlation matrix element. Other tensor objects such as spin matrices, color structures and spatial transformations within the correlation matrix element remain part of the correlator expression, and do not contribute to the fermion permutation signature. Consider a correlation matrix element with $N$ quark fields and thus $N$ antiquark fields, with the original user-defined fermionic field order $F$. For each given Wick contraction associated with the correlation matrix element, \textsc{SymCorr} builds the fermionic field ordering in which each quark is placed immediately left to its paired antiquark, for example
+\begin{equation}
+F_{\mathcal P} =(q_{i_1},\bar q_{j_1},\ldots, q_{i_N},\bar q_{j_N}).
+\end{equation}
+The fermion permutation sign is given by $s_{\mathcal P}=(-1)^{I(\mathcal P)}$, the number parity of fermion field permutations that maps the original field ordering $F$ to the paired ordering $F_{\mathcal P}$. 
+
+We demonstrate this exercise with a simple example of correlation function with four fermion fields. Suppose the original fermionic order is $F=(q_1,\,q_2,\,\bar q_1,\,\bar q_2)$. For the pairing $[(q_1,\bar q_1), (q_2,\bar q_2)]$, the paired sequence corresponds to $F_{\mathcal P} =(q_{1},\bar q_{1},q_{2},\bar q_{2})$. Mapping $F$ to $F_{\mathcal P}$ involves one permutation and hence has sign -1. The only other admissible pairing $[(q_1,\bar q_2), (q_2,\bar q_1)]$, the pairing sequence $F_{\mathcal P} =(q_{1},\bar q_{2},q_{2},\bar q_{1})$. In this case, mapping $F$ to $F_{\mathcal P}$ requires two fermion field permutation and hence has sign +1. 
+
+The algebraic coefficient $c_{\mathcal P}$ associated with each Wick contraction originates from the coefficients in the operator linear combinations within in the user-defined basis. These factors are appropriately combined into the coefficient multiplying the logical correlator $c_{\mathcal P}^{\rm full}=s_{\mathcal P}\,c_{\mathcal P}$. Note that the sign and the algebraic coefficients are kept as separate pieces of the Wick contraction. This aids in making the origin of permutation sign traceable and thus
+inspectable. 
+
+\textsc{SymCorr} performs another backend modification to the user-supplied symbolic operator descriptions and the symbolic correlation matrix expressions, while retaining their original forms at the frontend. In this procedure, each symbolic description is associated with a structural identity that is independent of arbitrary dummy index or operator definition syntax. While the user enjoys the freedom to define the same operator in visibly different forms, the backend structural identity aids in identifying them and in lifting any redundancy in their evaluation. This modification also involves expanding and simplifying nested field operations into a internal composite operation, while preserving fermion field ordering, spin and color structures, spatial transformations and momentum assignments. The backend structural identity aids in identifying repeated occurrences of the same normalized symbolic operators and correlator matrix element expressions. This facilitates a single time evaluation of identical expressions and reuse to avoid redundant symbolic work. There is a separate optimization program later in the \textsc{SymCorr} workflow, when exact global common-subexpression analysis can canonicalize reusable tensor-network components and combine exactly equal numerical objects within each correlator. 
+
+By end of this stage, \textsc{SymCorr} identifies all Wick contractions, the associated relative permutation sign, the algebraic weights, and the symbolic operator structures that accompany those propagation lines for every correlation matrix element to be evaluated.  For each Wick contraction in every correlation matrix element, this stage associates and outputs a symbolic description that is independent of lattice specifics and other numerical details involved in the actual computation, 
+\begin{equation}
+W_\alpha =\left( s_\alpha, \,c_\alpha,\, \mathcal P_\alpha,\, \mathcal E_\alpha,\, \mathcal C_\alpha\right).
+\label{eq:wick_term_contents}
+\end{equation}
+where $s_\alpha$ is the fermionic sign and $c_\alpha$ is the algebraic coefficient. $\mathcal P_\alpha$ is the set of quark-antiquark field pairings. Each pairing carry information of the quark endpoint and the antiquark endpoint of one quark propagation line, including its flavor and symbolic spin, color, and position labels. It also retains the information needed to associate field-level derivatives, transports, shifts, and spatial representations with the correct endpoints. $\mathcal E_\alpha$ is the contracted symbolic expression that retains all the non-fermionic tensor content, such as spin matrices, color tensors, gauge-link objects, their connectivity, etc., inherited from the original operators and represents contracted quark lines symbolically. $\mathcal C_\alpha$ records the position locality information about the elementary fields inferred from the original operator basis, which is necessary to perform appropriate momentum assignments. When an extended basis correlator originates from a linear combination, the relative complex basis weight is accommodated to the algebraic coefficient $c_\alpha$ while other components of $W_\alpha$ remain unchanged. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Lowering to Distillation primitives}
 \label{sec:distillation_lowering}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsection{Distillation primitives}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 The input to distillation lowering is the validated PhysicsIR described at the
 end of Sec.~\ref{sec:wick}. At this boundary the fermionic pairing and
