@@ -418,7 +418,7 @@ mesontx = Operator(  dbar("x", "a", "al")
   \node[lbl, right=2pt] at (r) {$u(x{+}\hat i)$};
 \end{tikzpicture}
 \end{center}
-Third operator is a complexified version of second featuring forward gauge-covariant transport along $x$ and $y$ directions of the $u$-quark field $\mathcal{O}_{M_3}=\bar d(x)\gamma_5U_j(x+\hat i)U_i(x)u(x+\hat i+\hat j)$ and the associated symbolic expression can be given as
+Third operator is a complexified version of second featuring forward gauge-covariant transport along $x$ and $y$ directions of the $u$-quark field $\mathcal{O}_{M_3}=\bar d(x)\gamma_5U_i(x)U_j(x+\hat i)u(x+\hat i+\hat j)$ and the associated symbolic expression can be given as
 \begin{verbatim}
 mesontxy = Operator(  dbar("x", "a", "al")
                     * gamma5("al", "be")
@@ -440,7 +440,7 @@ mesontxy = Operator(  dbar("x", "a", "al")
   \node[lbl, left=2pt] at (ru) {$u(x{+}\hat i{+}\hat j)$};
 \end{tikzpicture}
 \end{center}
-Note the arguments related to the directions in \texttt{transport} follows the order from left to the right. Similarly, explicit gauge links and other color structures can also be introduced as factors in the expression.
+Note the arguments related to the directions in \texttt{transport} follows the order from left to the right. Similarly, explicit gauge links and other color structures can also be introduced as factors in the symbolic expression, although standalone \texttt{GaugeLink} tensors are not currently executable by the numerical backend.
 
 
 
