@@ -183,7 +183,7 @@ The computational cost of such tensor index contractions spanning through the sp
 \tilde q(t)=\Box(t)q(t), &\qquad
 \tilde{\bar q}(t)=\bar q(t)\Box(t), \nonumber \\
 \mbox{~~where ~~~} \Box(t)&=V(t)V^\dagger(t) = \sum_{i=1}^{N_v}|v^{(i)}><v^{(i)}|(t),  \nonumber \\
-\mbox{~and ~~~} V(t)&=\left(v^{(1)}(t),v^{(2)}(t),\ldots,v^{(N_v)}(t)\right).
+\mbox{~and ~~~} V(t)&=\left(v^{(1)}(t),v^{(2)}(t),\ldots,v^{(N_v)}(t)\right). \label{eq:distill}
 \end{align}
 The $\Box(t)$ operator acts as a low pass filter or a projection operator, with the lowest $N_v$ modes. Inserting such projection operators for the quark fields in the conventional correlations, followed regrouping the objects to form new objects such as
 \begin{align}
@@ -635,90 +635,24 @@ W_\alpha =\left( s_\alpha, \,c_\alpha,\, \mathcal P_\alpha,\, \mathcal E_\alpha,
 where $s_\alpha$ is the fermionic sign and $c_\alpha$ is the algebraic coefficient. $\mathcal P_\alpha$ is the set of quark-antiquark field pairings. Each pairing carry information of the quark endpoint and the antiquark endpoint of one quark propagation line, including its flavor and symbolic spin, color, and position labels. It also retains the information needed to associate field-level derivatives, transports, shifts, and spatial representations with the correct endpoints. $\mathcal E_\alpha$ is the contracted symbolic expression that retains all the non-fermionic tensor content, such as spin matrices, color tensors, gauge-link objects, their connectivity, etc., inherited from the original operators and represents contracted quark lines symbolically. $\mathcal C_\alpha$ records the position locality information about the elementary fields inferred from the original operator basis, which is necessary to perform appropriate momentum assignments. When an extended basis correlator originates from a linear combination, the relative complex basis weight is accommodated to the algebraic coefficient $c_\alpha$ while other components of $W_\alpha$ remain unchanged. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Lowering to Distillation primitives}
+\section{Lowering to the Distillation primitives}
 \label{sec:distillation_lowering}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The output from Wick contraction stage is passed on to the next stage involving (symbolic) reduction of tensors from space-color representation to that of distillation vectors (see Eq. \ref{eq:distill}). This constitutes of a few different substages: substituting the space color indices of the field endpoints with the distillation vector indices, building symbolic objects representing operator dependent kernels/elementals and quark lines tensors, and constructing tensor-contracted form of correlation matrix elements in the distillation space. We discuss this procedure in this section. 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-The input to distillation lowering is the validated PhysicsIR described at the
-end of Sec.~\ref{sec:wick}. At this boundary the fermionic pairing and
-coefficient of each Wick contribution are already fixed. The purpose of the
-distillation layer is therefore not to redo the field-theory algebra, but to
-translate the physical records into a small set of objects that describe the
-spatial/color structures and propagation resources required by a distillation
-calculation.
-
-The first primitive is a \emph{projected field endpoint}. Every endpoint in
-PhysicsIR carries an explicit spatial representation, currently either LapH or
-POINT, together with any field-local derivative, transport, or shift operations.
-For a LapH endpoint, the compiler realizes the contribution according to the
-orientation of the fermion field,
-
+A field endpoint refers to the quark fields within any hadron operator and is conventionally associated with a spatial representation along with any derivative, transport or shift operations. The field endpoints constitute the hadronic operators at the source or sink timeslice, for which the package supports conversion of the spatial represented field endpoints to the LapH endpoints. It also supports retaining the spatial index for current insertions at intermediate timeslices, supporting the use of generalized perambulators and thus the construction of thre point correlation functions/matrices. For a LapH endpoint, the spatial-color explicit fermion field objects are projected to the distillation vector space following
 \begin{equation}
-q_{\mathrm{LAPH}} \longmapsto V,
+q(\mathbf x, a) \longmapsto q(V),
 \qquad
-\bar q_{\mathrm{LAPH}} \longmapsto V^\dagger,
+\bar q(\mathbf x, a) \longmapsto \bar q(V^\dagger),
 \label{eq:laph_endpoint_realization}
 \end{equation}
+whereas an explicitly POINT field endpoint retains the space-color information. The spin structure is suppressed in the above expression, and are treated independent of the space-color to the distillation vector map. thu
 
-whereas an explicitly POINT endpoint remains a distinct point contribution.
-This translation records which spatial object is required; it does not load an
-eigenvector tensor or construct a numerical array. The operations attached to
-the original endpoint remain associated with the realized field so that their
-placement is not reconstructed later from tensor shape or ordering.
 
-Before these projected fields are assembled, SymCorr partitions each logical
-correlator into spatial--color components. The partition is determined from the
-incidence of field endpoints, position labels, color labels, explicit color
-tensors, and gauge-link tensors. Each connected component containing at least
-one field endpoint becomes an operator vertex. Spin tensors do not determine
-this partition. Consequently, the decomposition is independent of whether the
-original symbolic object was described as a meson, baryon, tetraquark, or
-multi-hadron operator; it follows only from the explicit spatial and color
-connectivity already present in PhysicsIR.
 
-A realized spatial--color component is represented by a \texttt{KernelRecipe}.
-Conceptually, this recipe specifies the operator-dependent projected object that
-will ultimately be built from the required eigenvector or point contributions,
-field-local spatial transformations, color tensors, gauge tensors, position
-variables, and momentum projections. For LapH fields its external spatial legs
-are LapH-mode indices; POINT fields remain distinguishable and retain a
-color-like external spatial leg. The recipe is therefore a compiler description
-of the object to be materialized rather than the materialized tensor itself.
+
+
 
 Spin structure is kept as a separate primitive. Gamma matrices and other spin
 tensors have already been converted into explicit \texttt{SpinTensorRecord}
