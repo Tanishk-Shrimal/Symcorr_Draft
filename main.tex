@@ -212,7 +212,7 @@ We present the \textsc{SymCorr} workflow in Fig.~\ref{fig:symcorr_workflow}. The
 
 Now we present the scope of the \textsc{SymCorr} package. The present implementation can serve in optimized distillation-based correlation matrix evaluations and works on both CPU as well as GPU resources. The package assumes externally supplied operator basis, lattice QCD configuration, associated Laplacian eigenvectors, and the quark perambulators. Operator constructions such as those provided by the packages MHI and \texttt{OpTion}~\cite{PhysRevD.109.094516,Yan:2025op}, generation of the lattice QCD configurations \cite{openQCD, MILC} and evaluation of Laplacian eigenvectors, and perambulators \cite{quada_laph} are outside \textsc{SymCorr}'s scope. The package can inspect the available resources such as CPUs, GPUs, memory, and can make educated decisions on efficient execution, however it does not support multi-GPU and MPI based multi-CPU evaluations\del{, which is a straightforward extension}\add{ of a single work unit; independent work units (configurations and time slices) can already be distributed over devices or nodes as separate jobs that reuse one compiled plan, whereas distributing a single work unit is future work (Sec.~\ref{sec:limitations})}. These are limited execution boundaries rather than restrictions on the symbolic definition of the correlator.
 
-At the physics level, the \textsc{SymCorr} package has been validated for a variety of local as well as bilocal hadron operators, and their full distillation two point correlation matrix evaluations. The results have been cross-verified with independent Chroma based evaluations for rest as well as (multiple) moving frames, for single mesons\del{, single baryons} as well as bilocal two-hadron interpolators\add{, and for derivative and gauge-transported meson operators against Chroma-LapH elementals. Baryon, baryon--meson and two-nucleon correlators, for which no external-code reference was available to us, were checked against independently written NumPy contractions and exact flavor-symmetry identities (Sec.~\ref{sec:validation})}.  Correlation matrices with local four-quark operator and relevant bilocal two-meson operators in the $T_{1g}$ have also been tested and cross-verified with an independent realization in the Chroma software suite\add{; the local four-quark correlator agrees with it up to the normalization factor $V^2$ discussed in Sec.~\ref{sec:validation}, at $N_v=45$}. Beyond these explicitly verified cases, the package has additional capabilities that include, but are not limited to, multi-hadron correlation matrix evaluations, \del{derivative-based single hadron correlator evaluations,} correlation matrices involving disconnected quark loops\add{ beyond the validated local cases}, three point correlation matrices provided the generalized perambulators \cite{}. 
+At the physics level, the \textsc{SymCorr} package has been validated for a variety of local as well as bilocal hadron operators, and their full distillation two point correlation matrix evaluations. The results have been cross-verified with independent Chroma based evaluations for rest as well as (multiple) moving frames, for single mesons\del{, single baryons} as well as bilocal two-hadron interpolators\add{, and for pseudoscalar derivative and gauge-transported meson operators against Chroma-LapH elementals. Baryon, baryon--meson and two-nucleon correlators, for which no external-code reference was available to us, were checked against independently written NumPy contractions and exact flavor-symmetry identities (Sec.~\ref{sec:validation})}.  Correlation matrices with local four-quark operator and relevant bilocal two-meson operators in the $T_{1g}$ have also been tested and cross-verified with an independent realization in the Chroma software suite\add{; the local four-quark correlator agrees with it up to the normalization factor $V^2$ discussed in Sec.~\ref{sec:validation}, at $N_v=45$}. Beyond these explicitly verified cases, the package has additional capabilities that include, but are not limited to, multi-hadron correlation matrix evaluations, \del{derivative-based single hadron correlator evaluations,}\add{ derivative and displaced operators with other spin structures or displaced baryon legs,} correlation matrices involving disconnected quark loops\add{ beyond the validated local cases}, three point correlation matrices provided the generalized perambulators \cite{}\add{, which so far have been checked against an independent calculation only on synthetic data (Sec.~\ref{sec:example_threept})}. 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1480,8 +1480,10 @@ pion and a positive-parity nucleon (4096 work units each, \(N_v=64\)) was
 computed from the same saved plans on a 64-core CPU node and on one NVIDIA H100.
 The two backends agree to \(5.4\times10^{-15}\) (pion) and \(1.7\times10^{-15}\)
 (nucleon) relative to the channel magnitude. Validation in this section is
-bounded by what was compared: three-point functions, generalized (POINT-current)
-propagation, disconnected loops beyond the local scalar and \(\gamma_4\) cases and
+bounded by what was compared: \del{three-point functions, generalized (POINT-current)
+propagation,}\add{three-point functions with generalized (POINT-current) propagation,
+which were compared with an independent calculation only on synthetic data
+(Sec.~\ref{sec:example_threept}),} disconnected loops beyond the local scalar and \(\gamma_4\) cases and
 the \(\vec p=(1,0,0)\) scalar loop, derivative operators with other spin
 structures or displaced baryon legs, and multi-device execution are implemented
 or planned but are not covered by Table~\ref{tab:validation}.
@@ -1495,7 +1497,8 @@ The operator examples of Sec.~\ref{sec:symbolic} showed how single hadrons are
 written. This section follows complete calculations from the operator file to
 the stored correlators, using systems that are tedious to set up by hand: a
 nucleon--pion correlation matrix, a two-nucleon system with an exact isospin
-check, and the triton.
+check, \del{and }the triton\add{, and a three-point function with a point current,
+which is checked against an independent calculation on synthetic data}.
 
 \subsection{A nucleon--pion correlation matrix}
 \label{sec:example_npi}
@@ -1672,6 +1675,114 @@ size of every intermediate to \(10^9\) elements with
 runs on a single CPU node (Sec.~\ref{sec:performance}). These numbers are
 available from \texttt{symcorr inspect} before any data are touched, so a user
 can choose the strategy before committing compute time.
+
+\begingroup\color{blue}
+\subsection{A three-point function with a point current}
+\label{sec:example_threept}
+
+A current at an intermediate time is written with POINT fields
+(Sec.~\ref{sec:distillation_lowering}), and a three-point correlator takes the
+sink, the current and the source in this order. For the flavor-changing current
+\(J_\Gamma=\bar s\,\Gamma\,d\) between pseudoscalar interpolators,
+{\footnotesize
+\begin{verbatim}
+def build(G=gammaX):
+    snk = Operator(ubar("x", "a", "al")
+          * gamma5("al", "be") * s("x", "a", "be"),
+          momentum=(0, 0, 1))
+    J = Operator(point(sbar("z", "b", "ga"))
+          * G("ga", "de") * point(d("z", "b", "de")),
+          momentum=(0, 1, 0))
+    src = Operator(dbar("y", "c", "ep")
+          * gamma5("ep", "ze") * u("y", "c", "ze"),
+          momentum=(1, 0, 0))
+    return {"C3": Correlator(snk, J, src)}
+\end{verbatim}
+}
+\noindent
+describes
+\begin{equation}
+C_\Gamma(t,t_1,t_0)=\big\langle\, [\bar u\gamma_5 s]_{\mathbf p'}(t)\;
+[\bar s\,\Gamma\,d]_{\mathbf q}(t_1)\; [\bar d\gamma_5 u]_{\mathbf p}(t_0)\,\big\rangle ,
+\label{eq:threept_example}
+\end{equation}
+with the momentum phases \(e^{+i\mathbf p\cdot\mathbf x}\) of
+Eq.~\eqref{eq:bilinear_spatial_kernel} for all three operators. There is a single
+Wick term. The \(s\) and \(d\) lines meet at the current, and the compiler
+absorbs the current into one generalized perambulator, so that
+\begin{align}
+C_\Gamma(t,t_1,t_0)={}&-\,\mathrm{Tr}\big[\Phi_{\gamma_5,\mathbf p'}(t)\;
+\tau^{\Gamma,\mathbf q}_{d\to s}(t,t_1,t_0)\nonumber\\
+&\qquad\times\Phi_{\gamma_5,\mathbf p}(t_0)\;\tau_u(t_0,t)\big],\\
+\tau^{\Gamma,\mathbf q}_{d\to s}(t,t_1,t_0)={}&\sum_{\mathbf z}e^{+i\mathbf q\cdot\mathbf z}\,
+V^\dagger(t)\,M_s^{-1}(t;\mathbf z,t_1)\nonumber\\
+&\qquad\times\Gamma\,M_d^{-1}(\mathbf z,t_1;t_0)\,V(t_0),
+\label{eq:generalized_peram}
+\end{align}
+where \(\Phi\) are the elementals of Eq.~\eqref{eq:kernel} with their spin matrices,
+the trace runs over distillation and spin indices, and the minus sign belongs to
+the closed fermion loop. The plan contains two kernels, one spin tensor
+(\(\gamma_5\), shared by source and sink), the ordinary perambulator \(\tau_u\) and
+the generalized one. The current's \(\Gamma\) and \(\mathbf q\) do not appear as
+separate tensors; they are part of the identity of the generalized resource.
+
+\textsc{SymCorr} does not compute generalized perambulators. They are supplied by
+the user, typically from sequential or stochastic inversions, through a resolver
+named in the job file, \texttt{generalized: \{resolver: "resolver.py:resolve"\}},
+and the time generator \texttt{\{type: three\_point, source: 0, sink: 3,
+insertions: \{values: [1, 2]\}\}} creates one work unit per insertion time. For
+every generalized resource the resolver receives the propagation recipe, which
+records the flavor path \((d,s)\) and the spin matrix and momentum of the current,
+and returns the location of the data:
+{\footnotesize
+\begin{verbatim}
+def resolve(*, resource_id, recipe, configuration):
+    (current,) = recipe.insertion_specs
+    (gamma,) = current.spin_tensors  # e.g. "gammaX"
+    return ExternalTensorSource(
+        source_id=resource_id, kind="hdf5",
+        location=f"gen_{gamma.kind}_{configuration}.h5",
+        dataset="/generalized/ins_{insertion_time_0}"
+                "/src_t_{source_time}/data",
+        metadata={"axes": ("sink_time", "sink_spin",
+            "source_spin", "sink_mode", "source_mode"),
+            "spin_basis": "DR", "source_field": "qbar"})
+\end{verbatim}
+}
+\noindent
+The time placeholders are filled for each work unit, and the axes, spin basis and
+source-field convention of the file are converted to the canonical form as for ordinary perambulators
+(Sec.~\ref{sec:numerical_execution}).
+
+Because no real-data reference was available, we checked this path on synthetic
+data for which the full propagators are known. On a \(4^3\times4\) lattice with three
+colors, each flavor \(f=u,d,s\) was given a dense, exactly \(\gamma_5\)-Hermitian
+matrix \(M_f=\gamma_5(H_f+m_f)\) with a random Hermitian \(H_f\), and the propagator
+\(M_f^{-1}\) was obtained by direct inversion of the full \(3072\times3072\) matrix.
+With \(N_v=6\) random orthonormal vectors per time slice in place of Laplacian
+eigenvectors, we wrote ordinary perambulators for all source times and the
+generalized perambulators of Eq.~\eqref{eq:generalized_peram} for
+\(\Gamma\in\{\gamma_1,\gamma_2,\gamma_3,\gamma_4,1\}\) in the layout read by the
+resolver above. The reference was computed without \textsc{SymCorr}, as the trace
+over the full lattice
+\begin{multline*}
+C_\Gamma(t,t_1,t_0)=-\,\mathrm{Tr}\big[O_{\mathbf p'}(t)\,M_s^{-1}(t,t_1)\,
+J_{\Gamma,\mathbf q}(t_1)\\
+\times M_d^{-1}(t_1,t_0)\,O_{\mathbf p}(t_0)\,M_u^{-1}(t_0,t)\big],
+\end{multline*}
+where the matrices \(O\) of the smeared operators carry the projector
+\(VV^\dagger\) on both sides and the current \(J\) does not. The momenta \(\mathbf p'=(0,0,1)\), \(\mathbf q=(0,1,0)\) and
+\(\mathbf p=(1,0,0)\) are deliberately not conserved. Synthetic data have no
+translation symmetry, so the correlator does not vanish and each phase is tested
+separately. For the four time orderings \((t_0,t_1,t)=(0,1,2)\), \((0,1,3)\),
+\((0,2,3)\) and \((1,2,3)\) and all five currents, the 20 values of
+\(C_\Gamma\) agree with the reference to \(2.5\times10^{-14}\) relative to their
+magnitude, and the two-point function of the same smeared operators agrees to
+\(1.3\times10^{-14}\). The check covers the Wick contraction and its sign, the
+orientation of the generalized perambulator, the elementals and their phases,
+and the binding of user-supplied generalized data. The calculation of generalized
+perambulators lies outside the package and is not tested here.
+\endgroup
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Performance Evaluation}
@@ -1960,7 +2071,9 @@ Three-point functions with current insertions, generalized (POINT-current)
 propagation resources, disconnected loops with other spin structures, momenta or
 displacements, and displaced baryon legs other than the tested spectator transport
 are implemented and covered by synthetic tests, but have not been compared with
-an independent real-data reference. Temporal derivatives are rejected explicitly.
+an independent real-data reference\add{; for the three-point function with a point
+current the synthetic test is an independent full-propagator calculation
+(Sec.~\ref{sec:example_threept})}. Temporal derivatives are rejected explicitly.
 
 \paragraph{Algorithmic limitations}
 Contraction paths are chosen per connected network. Cross-correlator reuse is
