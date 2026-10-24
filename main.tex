@@ -223,7 +223,7 @@ The \textsc{SymCorr} package takes in the interpolator basis as a list of ordere
 
 Quark and antiquark fields of flavor f $\in\{u,d,c,s,b\}$ are represented schematically as $q_{\rm f}(x)_{a\alpha}\equiv\mbox{\texttt{f("x", "a", "alpha")}}$ ~and $\bar q_f(x)_{a\alpha}\equiv \mbox{\texttt{fbar("x", "a", "alpha")}}$, where $x$, $a$, and $\alpha$ denote position, color, and Dirac spin indices, respectively. The explicit flavor information and the quark/antiquark identification in the fermion object names aid in identifying flavor compatibility and in keeping track of fermionic permutation signatures in Wick contractions at the symbolic stage. The literal names chosen for dummy spin, color, and position indices are not part of the mathematical identity of any symbolic expression or the operator built out of it. The package assumes the following convention for the index labels. When a label is first introduced, its index type (spin, color or space) is fixed; attempting to reuse the same label for a different type will be rejected. Reusing the label within the same type defines the intended tensor connectivity of the operator.
 
-Until the backend stage of numerical evaluation, no numerical conventions are assumed for the Dirac gamma structures. At the front end, the user may provide usual gamma matrices to represent the operator spin structures, examples of which will be given later in this section. On the color index, the package supports the Kronecker delta $\delta_{ab}$ for the meson-like objects and the antisymmetric Levi-Civita tensor $\epsilon_{abc}$ for the baryon-like operators. Spin and color indices follow the usual Einstein repeated index contraction convention within a symbolic expression. A single spin index occurrence remains open and can be used to represent the uncontracted Dirac spin index, such as in baryon operators. A single color index is allowed by the representation but will be reported as a warning as the resulting operator will be gauge dependent. Spin or color indices appearing more than twice are rejected.
+Until the backend stage of numerical evaluation, no numerical conventions are assumed for the Dirac gamma structures. At the front end, the user may provide usual gamma matrices to represent the operator spin structures, examples of which will be given later in this section. \add{Numerically, \texttt{gammaX}, \texttt{gammaY}, \texttt{gammaZ} and \texttt{gammaT} are the DeGrand--Rossi matrices of Chroma/QDP++, or their Dirac--Pauli transforms when \texttt{compile.spin\_basis} selects that basis, Chroma's $\Gamma(n)=\gamma_1^{n_0}\gamma_2^{n_1}\gamma_3^{n_2}\gamma_4^{n_3}$ is available by name, and a spin matrix \texttt{G("al", "be")} placed between \texttt{qbar(..., "al")} and \texttt{q(..., "be")} denotes $\bar q_\alpha G_{\alpha\beta}\,q_\beta$.} On the color index, the package supports the Kronecker delta $\delta_{ab}$ for the meson-like objects and the antisymmetric Levi-Civita tensor $\epsilon_{abc}$ for the baryon-like operators. Spin and color indices follow the usual Einstein repeated index contraction convention within a symbolic expression. A single spin index occurrence remains open and can be used to represent the uncontracted Dirac spin index, such as in baryon operators. A single color index is allowed by the representation but will be reported as a warning as the resulting operator will be gauge dependent. Spin or color indices appearing more than twice are rejected.
 
 Position indices identify the spatial locality associated with fermionic fields within an expression and are therefore not subject to the Einstein summation convention. Two or more fermionic fields carrying the same position label belong to the same locality group, whereas distinct labels can be used to represent multi-local or more general composite operators. This convention helps in assigning a definite three-momentum to each locality group as 
 \begin{equation}
@@ -1366,11 +1366,11 @@ a separate Chroma data set.
 \subsection{Symbolic and Wick-contraction tests}
 \label{sec:validation_symbolic}
 
-The portable regression suite (1524 tests, of which six require a CUDA device) exercises the symbolic layer
+The portable regression suite (\del{1524}\add{1528} tests, of which six require a CUDA device) exercises the symbolic layer
 directly: flavor-compatible pairings, the permutation-parity sign of every
 pairing, the coefficients of linear combinations, exact cancellation of terms
 with identical canonical form and opposite coefficients, the normalization of
-spin matrices in both the DeGrand--Rossi and Dirac--Pauli bases, the source
+spin matrices in both the DeGrand--Rossi and Dirac--Pauli bases\add{ and their agreement with the Chroma/QDP++ matrices}, the source
 adjoint of derivative and transported fields, and the explicit rejection of
 unsupported requests such as temporal derivatives. In the absence of
 cancellations the number of Wick terms of a correlator equals the number of
@@ -1408,6 +1408,7 @@ System & Reference & \(N_v\) & Deviation & Remarks \\
 \midrule
 \(D, K, D^*, K^*\) (rest frame) & Chroma correlators & -- & \(\le 1.2\times10^{-12}\) & all 24 time slices \\
 \(D\), \(\vec P=(0,0,1)\) & Chroma correlators & -- & \(1.3\times10^{-13}\) & opposite phase fails \\
+\add{\(D, K, D^*, K^*\), 44 frames and polarizations} & \add{Chroma correlators} & \add{60} & \add{\(5.7\times10^{-15}\) (rel.)} & \add{full \(2\times2\) matrices, 176 elements} \\
 bilocal two-meson, 13 channels & Chroma correlators & -- & \(\le 6.4\times10^{-12}\) & direct and exchange terms \\
 \(\bar d\gamma_5 \nabla_{+i} u\), \(\bar d\gamma_5 T_{+i}u\), \(\bar d\gamma_5 T_{+x}T_{+y}u\) & Chroma-LapH elementals & 64 & \(1.0\times10^{-14}\) (rel.) & 7 channels, 4 sink times \\
 \(\epsilon(u^T C\gamma_5 d)\,T_{+x}u\) & transport reference & 64 & \(1.8\times10^{-16}\) (rel.) & full \(4\times4\) spin matrix \\
@@ -1423,7 +1424,7 @@ scalar loop, \(\vec p=(1,0,0)\) & NumPy contraction & 64 & \(3.4\times10^{-15}\)
 \end{tabular}
 \end{table*}
 
-Several entries deserve comment. The derivative and transported pion channels
+Several entries deserve comment. \add{The 44 single-meson files contain, besides the rest frame, moving frames up to \(\vec P^2=4\), the polarization sums \(\gamma_1+\gamma_2\) and \(\gamma_2+\gamma_3\), and the off-diagonal elements between \(\gamma_i\) and \(\gamma_i\gamma_4\) (or \(\gamma_5\) and \(\gamma_4\gamma_5\)) operators; these elements test the relative signs of the \(\gamma\) matrices, and the matrices themselves are checked against the Chroma/QDP++ definitions in the regression suite. The quoted deviation is for the moving frames; the rest-frame elements agree to \(3.4\times10^{-9}\), the same factor at every time, because the stored eigenvectors are orthonormal only to \(2\times10^{-8}\) while Chroma uses the identity for local zero-momentum elementals.} The derivative and transported pion channels
 fix the derivative normalization \(\nabla_{+i}=\tfrac12(T_{+i}-T_{-i})\) of
 Eq.~\eqref{eq:transport_conventions}, the path ordering of \(T_{+x}T_{+y}\) and the
 source adjoint; they were compared with the
@@ -2040,7 +2041,7 @@ resumes an interrupted output file.
 \subsection{Reproducibility of the results in this work}
 
 All results in this paper were obtained with the \textsc{SymCorr} revision tagged
-% TODO(authors): tag the release commit (currently paper/v1-freeze, 15a68db) and cite it here.
+% TODO(authors): tag the release commit (currently paper/v1-freeze = main, 0a708b7) and cite it here.
 \texttt{v0.1.0}. The operator definitions, job generators, timing and
 compile-scan drivers and the plotting scripts used for Sec.~\ref{sec:performance}
 are provided in the \texttt{benchmarks/paper} directory of the repository,
