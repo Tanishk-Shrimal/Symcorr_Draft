@@ -187,8 +187,8 @@ The computational cost of such tensor index contractions spanning through the sp
 \end{align}
 The $\Box(t)$ operator acts as a low pass filter or a projection operator, with the lowest $N_v$ modes. Inserting such projection operators for the quark fields in the conventional correlations, followed regrouping the objects to form new objects such as
 \begin{align}
-\tau_f(t,t_0) &= V^\dagger(t) M_f^{-1}(t,t_0) V(t_0) \\
-\Phi_{\mathcal{O}}(t)&= V^\dagger(t)\,\mathcal{O}\,V(t).
+\tau_f(t,t_0) &= V^\dagger(t) M_f^{-1}(t,t_0) V(t_0) \label{eq:peram}\\
+\Phi_{\mathcal{O}}(t)&= V^\dagger(t)\,\mathcal{O}\,V(t). \label{eq:kernel} 
 \end{align}
 referred to as the perambulators and elementals/kernels, which takes over the information from the quark propagator $M_f^{-1}(t,t_0)$ and hadronic operator $\Phi_A(t)$, respectively. The objects $\tau_f(t,t_0)$ and $\Phi_{\mathcal{O}}$ carry indices running of the $N_v\sim100-1000$ modes considered facilitating contractions of tensor indices with reduced computational cost. This novel procedure was not only found to reduce the computational cost requirement involved in tensor contractions, but also found to provide access to all-to-all quark propagators, to source momentum projection in hadron operator, multi-hadron operators, etc. The expensive quark-propagation information can be prepared independently of a particular spectroscopy operator basis, while changes to momenta, spin structures, or spatial constructions modify the operator-dependent factors. Within the distillation framework, the correlation matrix elements can be written in a compact form as
 \begin{equation}
@@ -635,404 +635,56 @@ W_\alpha =\left( s_\alpha, \,c_\alpha,\, \mathcal P_\alpha,\, \mathcal E_\alpha,
 where $s_\alpha$ is the fermionic sign and $c_\alpha$ is the algebraic coefficient. $\mathcal P_\alpha$ is the set of quark-antiquark field pairings. Each pairing carry information of the quark endpoint and the antiquark endpoint of one quark propagation line, including its flavor and symbolic spin, color, and position labels. It also retains the information needed to associate field-level derivatives, transports, shifts, and spatial representations with the correct endpoints. $\mathcal E_\alpha$ is the contracted symbolic expression that retains all the non-fermionic tensor content, such as spin matrices, color tensors, gauge-link objects, their connectivity, etc., inherited from the original operators and represents contracted quark lines symbolically. $\mathcal C_\alpha$ records the position locality information about the elementary fields inferred from the original operator basis, which is necessary to perform appropriate momentum assignments. When an extended basis correlator originates from a linear combination, the relative complex basis weight is accommodated to the algebraic coefficient $c_\alpha$ while other components of $W_\alpha$ remain unchanged. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Lowering to the Distillation primitives}
+\section{Redefining in the distillation language}
 \label{sec:distillation_lowering}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The output from Wick contraction stage is passed on to the next stage involving (symbolic) reduction of tensors from space-color representation to that of distillation vectors (see Eq. \ref{eq:distill}). This constitutes of a few different substages: substituting the space color indices of the field endpoints with the distillation vector indices, building symbolic objects representing operator dependent kernels/elementals and quark lines tensors, and constructing tensor-contracted form of correlation matrix elements in the distillation space. We discuss this procedure in this section. 
 
-A field endpoint refers to the quark fields within any hadron operator and is conventionally associated with a spatial representation along with any derivative, transport or shift operations. The field endpoints constitute the hadronic operators at the source or sink timeslice, for which the package supports conversion of the spatial represented field endpoints to the LapH endpoints. It also supports retaining the spatial index for current insertions at intermediate timeslices, supporting the use of generalized perambulators and thus the construction of thre point correlation functions/matrices. For a LapH endpoint, the spatial-color explicit fermion field objects are projected to the distillation vector space following
+A field endpoint refers to a quark field within any hadron operator and is conventionally associated with a spatial index coupled with any derivative, transport or shift operations. The field endpoints constitute the hadronic operators at the source or sink timeslice, for which the package supports conversion of the space-color index represented field endpoints to the LapH endpoints. It also supports retaining the spatial index for current insertions at intermediate timeslices, supporting the use of generalized perambulators and thus the construction of thre point correlation functions/matrices. For a LapH endpoint, the spatial-color explicit fermion field objects are projected to the distillation vector space following
 \begin{equation}
 q(\mathbf x, a) \longmapsto q(V),
 \qquad
 \bar q(\mathbf x, a) \longmapsto \bar q(V^\dagger),
 \label{eq:laph_endpoint_realization}
 \end{equation}
-whereas an explicitly POINT field endpoint retains the space-color information. The spin structure is suppressed in the above expression, and are treated independent of the space-color to the distillation vector map. thu
+whereas an explicitly POINT field endpoint retains the space-color information. 
 
+The hadronic operators at the source, sink and current insertion timeslices in the distillation vector space are constructed from the spatial-color components of the field endpoints. The code assigns unique kernel identity for each of the operators that includes various information on the projected-field orientations, field-local operations, color tensors, explicit gauge connectivity, and momentum assignments in the original operator definition. Spin and quark flavor are deliberately excluded from this kernel identity. Keeping the space-color representation from the spin-flavor structure has known pros in reducing the kernel computing as well as memory requirement an order of magnitude lower than what it would be otherwise. This strategy also is known to support possible reuse across various Wick contractions at various optimization stages. The unique kernel identify carries all the necessary and sufficient information on the operator structure forward to the contraction stages, to determine the required numerical tensors. 
 
-
-
-
-
-Spin structure is kept as a separate primitive. Gamma matrices and other spin
-tensors have already been converted into explicit \texttt{SpinTensorRecord}
-objects in PhysicsIR, and they are deliberately excluded from the identity of a
-spatial/color \texttt{KernelRecipe}. This separation mirrors the distillation
-factorization discussed in Sec.~\ref{sec:background}: the reusable spatial
-object and the spin structure that contracts with it need not be treated as one
-opaque tensor at the compiler boundary. It also allows two contributions with
-the same spatial/color construction but different spin structure to share the
-same spatial resource where the later contraction graph permits it.
-
-The remaining primitive class describes quark propagation between these
-operator-dependent objects. From the exact logical quark lines, later stages
-reconstruct open fermion paths and closed cycles and assign corresponding
-propagation requirements. For an open path this requirement is represented by a
-\texttt{PropagationRecipe}; with no inserted current it denotes an ordinary
-perambulator requirement, while supported explicit POINT-current insertions can
-produce a generalized propagation requirement. The detailed construction and
-current implementation boundary of these resources are discussed below in the
-subsection on propagation resources.
-
-These objects should be distinguished from concrete numerical data. At this
-stage a kernel recipe is not yet an evaluated elemental, and a propagation
-recipe is not an in-memory perambulator. No filename, HDF5 group, source time,
-tensor shape, physical buffer, CPU/GPU placement, or contraction schedule is
-chosen by distillation realization. Those choices belong to later graph,
-resource-binding, materialization, and execution stages. The output of this
-layer is therefore a more concrete statement of the required distillation
-calculation while remaining independent of a particular data layout or
-machine.
-
-\subsection{Operator-dependent structures}
-
-The operator-dependent part of the distillation calculation is constructed from
-the spatial--color components identified above rather than from a fixed library
-of meson, baryon, or tetraquark tensor shapes. For one component \(A\), let
-\(\mathbf x_r\) denote its position variables, \(\mathbf p_r\) the associated
-momenta, and \(k_i\) the external LapH-mode indices carried by its projected
-fields. A useful schematic form of the corresponding spatial kernel is
-
-\begin{align}
-\mathcal K_A(\{k_i\};t)
-&=
-\sum_{\{\mathbf x_r\},\{a_i\}}
-\exp\!\left(
- i\sum_r \mathbf p_r\!\cdot\!\mathbf x_r
-\right)
-\mathcal C_A(\{a_i\})\nonumber\\
-&\qquad\times\mathcal U_A(\{\mathbf x_r\},\{a_i\})
-\prod_i
-\mathcal V_i(\mathbf x_{r(i)},a_i,k_i;t),
-\label{eq:generic_operator_spatial_kernel}
-\end{align}
-
-where \(\mathcal C_A\) denotes the explicit color-tensor structure,
-\(\mathcal U_A\) denotes any explicit gauge-link structure represented in the
-component, and \(\mathcal V_i\) denotes the appropriately oriented LapH
-factor, including the field-local spatial operations attached to that endpoint.
-For a quark endpoint this factor is built from \(V\), while for an antiquark
-endpoint it is built from the conjugate/projected orientation corresponding to
-\(V^\dagger\). Equation~\eqref{eq:generic_operator_spatial_kernel} is schematic:
-its purpose is to display the information retained by the compiler rather than
-to impose one fixed tensor rank or one fixed pattern of spatial indices.
-
-For example, a local bilinear whose two LapH fields are contracted to a color
-singlet gives a two-mode spatial kernel of the schematic form
-
+For example, a local bilinear representing simple meson, whose two LapH-based quark fields are contracted to a color singlet giving a two-index kernel of the schematic form
 \begin{equation}
-K_{kl}^{(\mathbf p)}(t)
-=
+M_{kl}^{(\mathbf p)}(t) =
 \sum_{\mathbf x,a}
  e^{+i\mathbf p\cdot\mathbf x}
  \left[\mathcal D_{\bar q}V(t)\right]^*_{\mathbf x a k}
  \left[\mathcal D_q V(t)\right]_{\mathbf x a l},
 \label{eq:bilinear_spatial_kernel}
 \end{equation}
-
-where \(\mathcal D_q\) and \(\mathcal D_{\bar q}\) stand for the spatial
-operations attached to the two field endpoints. The spin matrix is not folded
-into this kernel. In the simplest separable case the familiar elemental-like
-object is obtained only after the independent spin structure is attached, for
-example through a factor \(\Gamma_{\alpha\beta}K_{kl}\). This is the concrete
-reason that SymCorr does not use the full spin--spatial elemental as its
-reusable spatial resource identity.
-
-The same construction applies without changing the lowering algorithm when the
-component has higher rank. For a local three-quark color-singlet structure, the
-spatial part has the schematic form
-
+where \(\mathcal D_q\) and \(\mathcal D_{\bar q}\) stand for the spatial operations attached to the quark and antiquark field endpoints. The same construction applies without changing the lowering algorithm when the hadronic operator has a higher rank. For a local three-quark color-singlet structure, the spatial part has the schematic form
 \begin{align}
 B_{k_1k_2k_3}^{(\mathbf p)}(t)
 &=
 \sum_{\mathbf x,a,b,c}
  e^{+i\mathbf p\cdot\mathbf x}
  \epsilon_{abc}
- \left[\mathcal D_1 V(t)\right]_{\mathbf x a k_1}\nonumber\\
+ \left[\mathcal D_{q_1} V(t)\right]_{\mathbf x a k_1}\nonumber\\
 &\qquad\times
- \left[\mathcal D_2 V(t)\right]_{\mathbf x b k_2}
- \left[\mathcal D_3 V(t)\right]_{\mathbf x c k_3}.
+ \left[\mathcal D_{q_2} V(t)\right]_{\mathbf x b k_2}
+ \left[\mathcal D_{q_3} V(t)\right]_{\mathbf x c k_3}.
 \label{eq:three_quark_spatial_kernel}
 \end{align}
+Note that the spin and flavor information are not involved in the definition of the kernels and thus the difference between the bilinear and three-quark examples appears through the number of field endpoints and their explicit color connectivity. Another important aspect is that the momentum projection is part of the spatial resource itself. Each position locality group involved in a hadronic operator is associated with a definite momentum assignment and \textsc{SymCorr} retains this assignment explicitly using the phase convention $e^{+i\mathbf p\cdot\mathbf x}$ for each and the product of those phase factors. This keeps constituent momenta visible for bilocal and multi-local constructions rather than replacing them by only the total momentum.
 
-The diquark spin matrix and any remaining open spin index are represented
-separately. Thus the difference between the bilinear and three-quark examples
-appears through the number of projected fields and their explicit color
-connectivity, not through a hadron-specific branch in the distillation
-compiler.
+The next objects to be redefined in the distillation language are the quark propagation lines that connect the field endpoint pairs, identified in the Wick contraction pairings in the previous stage. These objects in the distillation setup are referred to as the perambulators. An open path connecting two field endpoints with no current insertion is represented by an ordinary perambulator object defined in Eq. \ref{eq:peram}. The package also supports an explicit POINT-current insertion that produces a generalized perambulator and thus an evaluation of three point functions/matrices. The perambulator objects are also associated with a unique propagator identity that carries the information on the exact source and sink timeslice, the distillation vector indices at either timeslices, endpoint spin content, and the flavor content. 
 
-Momentum is part of the spatial resource itself. SymCorr retains one momentum
-assignment for each position group in a component and uses the phase convention
-\(e^{+i\mathbf p\cdot\mathbf x}\); Hermitian conjugation has already reversed
-the corresponding source momentum where required. For a component containing
-several independent position labels, the spatial object contains the product of
-those phase factors, equivalently the exponential shown in
-Eq.~\eqref{eq:generic_operator_spatial_kernel}. This keeps constituent momenta
-visible for bilocal and multi-local constructions rather than replacing them by
-only the total momentum.
+The generalized perambulator object retains substantially more information than the current structure. In addition to the ordinary perambulator attributes, it accommodates the insertion timeslice assuming POINT-like field endpoints, incoming and outgoing flavor and the current insertion spin structures in the propagator identity. Several POINT-like quark bilinear insertions can also be retained. Thus the quark propagation identity depends on whether the object is ordinary or generalized, the source and sink representations, the ordered sequence of incoming/outgoing flavors, and the canonical spatial and spin content of the insertions. 
 
-The compiler assigns each \texttt{KernelRecipe} a deterministic spatial
-resource identity. That identity is invariant under dummy position/color
-renaming but includes the projected-field orientations, field-local operations,
-color tensors, explicit gauge connectivity, and momentum assignments. Spin and
-quark flavor are deliberately excluded from this spatial identity. Spin appears
-as separate primitive tensor nodes in the subsequent contraction graph, while
-the LapH eigenvector subspace itself is a gauge-field spatial object rather
-than a flavor-dependent quark propagator. Equal spatial resource identities
-therefore expose possible reuse without yet merging the distinct occurrences
-that appear in different Wick terms or matrix elements; that global reuse is a
-later optimization step.
+The standard perambulator expected by Wick contraction object is ordered as sink vector and sink spin followed by source vector and sourcespin. For antiquark propagation, \textsc{SymCorr} uses the $\gamma_5$-Hermiticity property $P(t_0,t) = \gamma_5\, P_{\mathrm{file}}(t,t_0)^\dagger\,\gamma_5 .$ The Hermitian adjoint exchanges both vector and spin indices at the source as well as sink timeslices. Closed fermion cycles or self-annihilation quark loops at the source or a the sink timeslices, use a related but distinct lowering. For an exact LapH closed cycle, the source to source component of an ordinary perambulator object is self-contracted with the appropriate spatial and spin structure sandwiched within. However, a genuinely POINT-like disconnected loop as required by current insertions in three point correlations cannot be reconstructed as the perambulators they do not contain the full point-space all-to-all propagator. Such a component requires additional stochastic, all-to-all, or precomputed-loop information and hence is rejected by the present exact-distillation lowering. A stand-alone POINT spatial kernel is not accepted within the current exact-distillation setup and they must be realized through the supported generalized perambulator prescriptions.
 
-For the currently executable exact-distillation path, the compatibility bridge
-turns a spatial recipe into primitive operations for the required eigenvector
-factors, momentum phases, and the supported \(\delta\) and \(\epsilon\) color
-tensors. Derivative information remains attached to the field and can be
-realized by the numerical tensor provider from derivative eigenvector data or,
-when configured, from the underlying eigenvectors and gauge links. The recipe
-layer is broader than this executable subset: explicit \texttt{GaugeLink}
-tensor nodes can be represented in the spatial/color component, but the current
-numerical kernel ISA rejects such standalone gauge-tensor nodes rather than
-silently approximating them. This distinction is retained here so that symbolic
-representability is not presented as equivalent to validated numerical
-execution.
+In the next and final substage of lowering procedure, \textsc{SymCorr} converts each identified complete Wick contractions into a primitive tensor-contraction graph, from the distillation objects constructed above. This graph is the first representation in which the numerical contraction problem is explicit. It contains the tensor objects (the operator kernels, perambulators, and spin structures) that participate in the Wick contraction terms and the indices that connect them. The graph is validated before it is passed to the subsequent stages. Node identifiers are ensured to be unique, each tensor index is assured to be connected exactly once, and global index with more than than two instances are ruled out. These checks establish the well-formed numerical tensor network independent of any subsequent contraction path. 
 
-The result of this lowering is therefore an operator-dependent spatial resource
-with explicit LapH ports, together with separate spin tensors whose indices are
-connected only when the primitive contraction graph is built. This is the form
-in which SymCorr carries the operator structure forward to the propagation and
-contraction stages: sufficiently concrete to determine the required numerical
-tensors, but still independent of the contraction order, memory layout, or
-execution device.
+Before we leave this stage, note that none of the distillation objects built are based on any concrete numerical data. No files, no information on source/sink timeslices, tensor shape, physical buffer, CPU/GPU placement, or contraction workflow has been fed in or sought out. The output from this distillation lowering stage builds explicit tensor components to be evaluated, while remaining independent of a particular data layout or machine. 
 
-\subsection{Propagation resources}
-
-After the operator-dependent kernels have been identified, the Wick quark lines
-must be mapped to the propagation tensors that connect their spatial and spin
-ports. SymCorr performs this step from the exact fermion topology rather than
-from operator names or tensor shapes. Each open quark path is decomposed into
-its ordered Wick-propagator segments and any operator-local transitions that
-join successive segments. The result is a logical propagation requirement; the
-compiler still does not load or construct a numerical propagator.
-
-For an ordinary path containing one Wick segment and no absorbed insertion, the
-required object is the usual distillation perambulator introduced in
-Sec.~\ref{sec:background}. The corresponding \texttt{PropagationRecipe}
-records the exact source and sink spatial kernels, the particular open port on
-each kernel, the flavor carried by the Wick segment, and the spatial
-representation of the two endpoints. Schematically, its numerical realization
-has the canonical index structure
-
-\begin{equation}
-\tau_f(t_{\mathrm{snk}},t_{\mathrm{src}})
-\equiv
-\tau_{f;\,k\alpha,\,l\beta}
-(t_{\mathrm{snk}},t_{\mathrm{src}}),
-\label{eq:propagation_resource_layout}
-\end{equation}
-
-where \((k,\alpha)\) are the sink LapH-mode and spin indices and
-\((l,\beta)\) are the source indices. The orientation is inherited from the
-Wick pairing and is therefore fixed before any external storage convention is
-considered.
-
-Open paths can also contain explicit local current insertions. In the current
-compiler, a current is absorbed into a generalized propagation resource only
-when its quark and antiquark endpoints are explicitly represented as POINT
-fields belonging to one spatial--color component. For one insertion, the
-logical structure is schematically
-
-\begin{equation}
-\mathcal T_{f_0\to f_1}^{J}
-(t_2,t_1,t_0),
-\label{eq:generalized_propagation_schematic}
-\end{equation}
-
-where the propagation segment before the current carries flavor \(f_0\), the
-segment after it carries flavor \(f_1\), and \(J\) denotes the specified local
-current structure. SymCorr does not assume that the two flavors are equal. A
-flavor-changing current is represented as a change between adjacent propagation
-segments rather than as a flavor change inside one Wick segment.
-
-The generalized recipe retains substantially more information than only the
-name of the current. For every absorbed insertion it stores the spatial kernel,
-the exact incoming and outgoing kernel ports, the incoming and outgoing
-flavors, the endpoint spin labels, and the independent spin tensors connecting
-those labels. Several POINT bilinear insertions can be retained in path order by
-the compiler representation. The deterministic propagation-resource identity
-therefore depends on whether the object is ordinary or generalized, the source
-and sink representations, the ordered sequence of segment flavors, and the
-canonical spatial and spin content of the insertions. It deliberately does not
-depend on a filename, HDF5 dataset name, source time, device, or execution
-strategy.
-
-This logical identity is separated from the occurrence at which the resource is
-used. During resource binding, each compiler propagation resource is mapped to
-one exact external tensor source. The occurrence placement then supplies the
-frontend source, insertion, and sink operator slots, and the run-time
-operator-time context converts those slots into concrete Euclidean times. Thus
-two uses of the same mathematical propagation resource can request different
-time slices without becoming different compiler resources. Conversely, the
-binding layer does not use a fallback such as ``look up a tensor by flavor'';
-ordinary and generalized resources are bound by their exact resource identity.
-
-External storage conventions are normalized only when a concrete propagation
-tensor is materialized. The canonical tensor expected by the contraction graph
-is ordered as sink mode/spin followed by source mode/spin. For a fixed-source
-file containing
-\(P_{\mathrm{file}}(t,t_0)\), a direct request with
-\(t_{\mathrm{src}}=t_0\) uses the stored orientation after the configured axis
-conversion. If instead \(t_{\mathrm{snk}}=t_0\), SymCorr reconstructs the
-reverse propagation using \(\gamma_5\)-Hermiticity,
-
-\begin{equation}
-P(t_0,t)
-=
-\gamma_5\,
-P_{\mathrm{file}}(t,t_0)^\dagger
-\,\gamma_5 .
-\label{eq:fixed_source_reverse_propagation}
-\end{equation}
-
-The Hermitian adjoint exchanges both mode and spin source/sink spaces; a simple
-complex conjugation is not equivalent. If neither requested endpoint is the
-fixed source, that tensor cannot be obtained from the file and materialization
-fails rather than inventing missing propagation data.
-
-The materialization adapter also owns external source-field and spin-basis
-conventions. In the validated QUDA-LapH input path, for example, a stored
-\texttt{qdagger} source convention is converted to SymCorr's canonical
-\(\langle q\bar q\rangle\) convention using the configured spin basis before
-the tensor reaches the generic numerical executor. Likewise, a reverse
-fixed-source transformation is applied in the adapter exactly once. The
-contraction executor therefore consumes the propagation tensor in the
-orientation requested by the compiler and does not apply an additional
-post-hoc conjugation or \(\gamma_5\) correction.
-
-Closed fermion cycles use a related but distinct lowering. For an exact LapH
-closed cycle, SymCorr does not request a separately stored disconnected-loop
-tensor. Instead, every Wick segment is represented by an ordinary perambulator
-and the successive operator-local spatial and spin tensors close the cyclic
-contraction. This route currently assumes ordinary all-time distillation
-perambulators for the required segments. A genuinely POINT disconnected loop
-cannot be reconstructed from those perambulators because they do not contain
-the full point-space all-to-all propagator; such a loop therefore requires
-additional stochastic, all-to-all, or precomputed-loop information and is
-rejected by the present exact-distillation lowering.
-
-The compiler and resource-binding layers can consequently represent ordinary
-perambulators, ordered generalized POINT-current resources, and exact-LapH
-closed-cycle propagation structure within one topology-driven framework. Their
-validation status is nevertheless different. The ordinary perambulator path is
-part of the external-data validation described in
-Sec.~\ref{sec:validation}, whereas generalized propagation inputs and the broader
-closed-loop pathways should be regarded as implemented compiler/runtime
-capabilities unless a separate external numerical validation is stated later in
-this paper.
-
-\subsection{Construction of contraction tasks}
-
-Once the operator-dependent kernels, propagation requirements, and spin tensors
-have been identified, SymCorr converts each complete PhysicsIR Wick contribution
-into a primitive tensor-contraction graph. This graph is the first compiler
-representation in which the numerical contraction problem is explicit. It
-contains the tensors that must participate in the Wick term and the indices
-that connect them, but it still contains no decision about the order in which
-those tensors will be contracted.
-
-For a Wick term \(\alpha\), let \(T_{\alpha n}\) denote its primitive tensor
-occurrences and let \(I_{\alpha n}\) denote the ordered set of contraction
-indices attached to tensor \(n\). The graph represents the contribution
-schematically as
-
-\begin{equation}
-C_\alpha
-=
-c_\alpha
-\sum_{\{i\}_{\mathrm{internal}}}
-\prod_n
-T_{\alpha n}(I_{\alpha n}),
-\label{eq:primitive_contraction_task}
-\end{equation}
-
-where \(c_\alpha\) is the coefficient already fixed in PhysicsIR. Indices that
-occur on two primitive tensor legs are summed internal indices. An index that
-occurs on only one leg remains a free output index, so the same graph
-representation can describe both scalar correlator terms and terms with an
-explicit open index. The graph validator rejects an index attached to more than
-two primitive legs rather than assigning an ambiguous multiway contraction
-meaning.
-
-The current primitive graph has only three tensor kinds: operator-dependent
-spatial kernels, propagation tensors, and spin tensors. A kernel node exposes
-one port for every surviving external spatial leg of its
-\texttt{KernelRecipe}. For a LapH kernel these ports become LapH-mode
-contraction indices. A spin node exposes its left and right spin indices. A
-propagation node connects the corresponding kernel and spin spaces using the
-canonical leg order
-
-\begin{equation}
-(\text{sink mode},\text{sink spin},
- \text{source mode},\text{source spin}).
-\label{eq:primitive_propagation_ports}
-\end{equation}
-
-The graph therefore records tensor connectivity explicitly rather than relying
-on a later numerical backend to infer contractions from array shape or node
-ordering.
-
-Fermion topology determines which propagation nodes are inserted. Along an open
-fermion path, POINT bilinear transitions that satisfy the generalized-resource
-requirements described above are absorbed into the corresponding propagation
-recipe. Their spatial kernel and spin tensors are then omitted as separate graph
-nodes so that the current is not counted twice. A non-absorbed transition must
-currently have LapH endpoints and remains explicit through its kernel and spin
-tensors. Similarly, a standalone POINT spatial kernel is not admitted to the
-current exact-distillation primitive graph; connected POINT bilinears must be
-realized through the supported generalized propagation route. Mixed POINT/LapH
-transitions that cannot be represented by these existing resources are rejected
-at this boundary rather than assigned a guessed tensor realization.
-
-Each primitive tensor occurrence carries two different identities. The
-\emph{node identity} distinguishes the occurrence inside this particular Wick
-term, while the \emph{resource identity} describes the reusable mathematical
-tensor that the occurrence requires. Two kernel occurrences, for example, may
-have the same spatial resource identity but different node identities because
-they occupy different places in the term. The primitive-graph stage
-intentionally preserves both occurrences. No deduplication is performed merely
-because their resource identifiers agree.
-
-This distinction is necessary because resource equality and tensor occurrence
-are different statements. A Wick term may use the same perambulator resource
-more than once, and those two uses must retain distinct contractions even though
-they may ultimately be materialized from the same external data source. The
-same applies to repeated spatial kernels and spin matrices. Occurrence-specific
-ports and index bindings therefore remain attached to each node until a later
-global analysis proves what can be reused without changing the contraction.
-
-The graph is validated before it is passed to optimization. Node identifiers
-must be unique, a tensor cannot expose the same local port twice, contraction
-indices cannot be empty, and no global index may have degree greater than two.
-A graph in which every index has degree two is a closed scalar contraction;
-degree-one indices define its external interface. These checks establish the
-well-formed numerical tensor network independently of any proposed contraction
-path.
-
-SymCorr constructs one such \texttt{WickContractionGraph} for every complete
-PhysicsIR Wick term. Equal primitive resources therefore remain visible across
-terms and across correlation-matrix elements, but they have not yet been
-combined. The next stage operates on this collection globally: it deduplicates
-exactly equal resource requirements, canonicalizes reusable connected tensor
-components, and aggregates exactly equal complete terms before contraction-order
-selection. Those operations belong to the execution and optimization framework
-in Sec.~\ref{sec:execution}; they are deliberately separated from the task
-construction described here.
-
-At the end of this subsection the physics lowering is complete. The compiler has
-fixed the coefficient, the required primitive tensor resources, and their exact
-index connectivity. It has not chosen pairwise contraction order, common
-intermediate expressions, execution schedule, memory buffers, hardware device,
-or numerical tensor values. Those remaining decisions can therefore optimize an
-already fixed tensor problem without modifying the physical correlator.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Execution and Optimization Framework}
